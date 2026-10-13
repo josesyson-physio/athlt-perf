@@ -2,9 +2,9 @@
   "name": "athlete-performance",
   "version": "0.1.0",
   "private": true,
-  "description": "MotionPlus athlete performance and VO2 max tracking",
+  "description": "MotionPlus sports assessment and reporting app",
   "scripts": {
-    "test": "node --test engine/engine.test.js",
+    "test": "node --test \"engine/*.test.js\" \"app/js/*.test.mjs\"",
     "build": "node scripts/build.js",
     "serve": "npm run build && npx --yes http-server@14.1.1 dist -p 8080 -c-1"
   }

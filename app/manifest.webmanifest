@@ -1,13 +1,12 @@
 {
-  "name": "MotionPlus VO2",
+  "name": "MotionPlus",
   "short_name": "MotionPlus",
-  "description": "VO2 max testing ranked by accuracy, with safety screening and traceable results. Works offline.",
+  "description": "Manual sports assessment, transparent calculations and structured reports. Works offline.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#f3f5f8",
-  "theme_color": "#16213a",
+  "background_color": "#080d13",
+  "theme_color": "#080d13",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
