@@ -1,6 +1,9 @@
-# MotionPlus VO2 (cardio module) — prototype
+# MotionPlus — manual sports assessment and reporting
 
-Built from "MotionPlus Manual Sports Assessment & AI Reporting Engine" v1.0 (sections 7, 10, 11, 14, 15.3).
+Built from "MotionPlus Manual Sports Assessment & AI Reporting Engine" v1.0 and the responsive UI/UX template.
+For sports physios, sports scientists and S&C coaches: dashboard, athlete records, a guided assessment
+(screening, vitals, cardio/VO2, strength and power, mobility and balance), printable reports with sign-off,
+trends and a protocol library. Works offline; records stay on the device.
 
 ## Use the app
 Once GitHub Pages is on (Settings → Pages → Source: GitHub Actions), the app is at
@@ -9,17 +12,19 @@ Android/Chrome shows **Install app**; on iPhone tap Share → Add to Home Screen
 After that it works with no signal. Results stay on the phone; use **Download backup** to keep a copy.
 
 ## Develop
-- `npm test` — engine unit tests
+- `npm test` — engine, metrics and app calculation tests
 - `npm run build` — builds `dist/` (offline app) and `prototype/motionplus-vo2.html` (single-file preview)
 - `npm run serve` — build and serve `dist/` at http://localhost:8080
 
 ## What's here
 - `engine/engine.js` — deterministic, versioned VO2 max equations with evidence labels, population checks,
   error ranges, input snapshots. Works in browser and Node. No AI in the calculation path.
-- `engine/engine.test.js` — 14 tests (`npm test`), including the spec's Cooper example
-  (2,800 m → 51.3 mL/kg/min, 3.59 L/min) and the published Rockport worked example (→ 42.3).
-- `prototype/template.html` — the app UI, shared by both build outputs.
-- `app/` — offline layer: service worker, install prompt, backup/restore, manifest and icons.
+- `engine/metrics.js` — BMI, waist-to-height, MAP, HR recovery and reserve, grip/jump/sprint summaries,
+  left/right differences and vitals safety flags.
+- `app/` — the web app (Preact + htm, no build step). `app/js/pages/` holds one file per screen,
+  `calc.js` turns an assessment into a result record, `insights.js` drafts rule-based observations
+  (never new numbers), `store.js` keeps records in IndexedDB on the device, `sw.js` makes it work offline.
+- `prototype/` — the earlier single-file VO2 tool, still built for reference.
 - `.github/workflows/ci.yml` — runs tests on every PR and publishes `dist/` to GitHub Pages from main.
 
 ## Priority: maximum accuracy (jose, 2026-10-13)
@@ -45,5 +50,5 @@ optical/camera HR bias on darker skin and during motion disclosed.
 ## Suggested next steps
 1. Personal calibration: one gas-analysis test per athlete corrects their later field-test estimates.
 2. Add reference norms only from cited sources (e.g. ACSM tables, FRIEND registry) with population labels.
-3. Assessor/athlete roles, audit trail, PDF report, AI draft text over approved result objects only.
+3. Logo, cloud accounts and shared clinic records (needs a secure server), AI-written report text over signed-off results only.
 4. Validation pilot against lab gas analysis before any accuracy claims.
