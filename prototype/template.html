@@ -1,0 +1,612 @@
+<title>MotionPlus VO2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: field-test clipboard. Inputs on the left, a live result card pinned on the right, evidence below. */
+:root {
+  --paper: #f3f5f8;
+  --sheet: #ffffff;
+  --ink: #16213a;
+  --muted: #5a6680;
+  --line: #d9dee8;
+  --accent: #0e7c86;
+  --accent-ink: #ffffff;
+  --accent-soft: #e0f1f2;
+  --est: #9a5b00;
+  --est-soft: #fdf0d8;
+  --bad: #b3261e;
+  --bad-soft: #fbe3e1;
+  --na: #59637a;
+  --na-soft: #e7eaf0;
+  --good: #1d7a3e;
+  --good-soft: #e1f3e7;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1522; --sheet: #172033; --ink: #e6ebf5; --muted: #9aa6bf; --line: #2a3550;
+    --accent: #4cc3cc; --accent-ink: #062226; --accent-soft: #143840;
+    --est: #f2b552; --est-soft: #3a2a10; --bad: #ff8a80; --bad-soft: #3d1715;
+    --na: #a8b2c7; --na-soft: #242e44; --good: #6fd394; --good-soft: #13321f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1522; --sheet: #172033; --ink: #e6ebf5; --muted: #9aa6bf; --line: #2a3550;
+  --accent: #4cc3cc; --accent-ink: #062226; --accent-soft: #143840;
+  --est: #f2b552; --est-soft: #3a2a10; --bad: #ff8a80; --bad-soft: #3d1715;
+  --na: #a8b2c7; --na-soft: #242e44; --good: #6fd394; --good-soft: #13321f;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 64px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 600; letter-spacing: .01em; text-wrap: balance; margin: 0; line-height: 1.1; }
+h1 { font-size: 2.6rem; font-weight: 700; }
+h2 { font-size: 1.55rem; }
+h3 { font-size: 1.15rem; }
+p { margin: 0; }
+.lede { color: var(--muted); max-width: 62ch; margin-top: 6px; }
+.eyebrow { font-family: var(--mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .12em; color: var(--accent); }
+header.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; border-bottom: 2px solid var(--ink); padding-bottom: 16px; }
+.notice { font-size: .82rem; color: var(--muted); max-width: 42ch; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 420px); gap: 28px; margin-top: 24px; align-items: start; }
+@media (max-width: 900px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.stack { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+section.block { background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.block-head { display: flex; gap: 12px; align-items: baseline; }
+.step { font-family: var(--display); font-size: 1.55rem; font-weight: 700; color: var(--accent); min-width: 1.2em; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+label.f { display: flex; flex-direction: column; gap: 4px; font-size: .82rem; color: var(--muted); font-weight: 500; }
+.unit-row { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); }
+.unit-row:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+.unit-row input, .unit-row select { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: 500 1rem var(--mono); padding: 9px 10px; outline: none; }
+.unit { font-family: var(--mono); font-size: .78rem; color: var(--muted); padding-right: 10px; white-space: nowrap; }
+select.plain { border: 1px solid var(--line); border-radius: 6px; background: var(--paper); color: var(--ink); font: 500 .95rem var(--body); padding: 9px 10px; width: 100%; }
+.checks { display: flex; flex-direction: column; gap: 6px; }
+.checks label { display: flex; gap: 10px; align-items: flex-start; font-size: .9rem; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.checks label:hover { background: var(--paper); }
+.checks input { margin-top: 3px; accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+.decision { display: flex; flex-wrap: wrap; gap: 8px; }
+.decision button, .proto button { font: 500 .9rem var(--body); }
+.seg { border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+.seg[aria-pressed="true"] { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.seg:disabled { opacity: .4; cursor: not-allowed; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.callout { font-size: .85rem; padding: 10px 12px; border-radius: 6px; background: var(--na-soft); color: var(--ink); }
+.callout.warn { background: var(--bad-soft); }
+.callout.info { background: var(--accent-soft); }
+.proto { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.proto button { text-align: left; border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 12px; border-radius: 8px; cursor: pointer; display: flex; flex-direction: column; gap: 6px; }
+.proto button[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); background: var(--accent-soft); }
+.proto button:disabled { opacity: .45; cursor: not-allowed; }
+.proto .pn { font-family: var(--display); font-size: 1.12rem; font-weight: 600; }
+.proto .pm { font-size: .78rem; color: var(--muted); }
+.tag { font-family: var(--mono); font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; padding: 2px 7px; border-radius: 4px; background: var(--na-soft); color: var(--na); align-self: flex-start; }
+.tag.max { background: var(--bad-soft); color: var(--bad); }
+.tag.sub { background: var(--est-soft); color: var(--est); }
+.tag.none { background: var(--good-soft); color: var(--good); }
+.tag.tA { background: var(--good-soft); color: var(--good); }
+.tag.tB { background: var(--accent-soft); color: var(--accent); }
+.tag.tC { background: var(--est-soft); color: var(--est); }
+.tag.tD { background: var(--na-soft); color: var(--na); }
+.chip.measured { background: var(--good-soft); color: var(--good); }
+.tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+.tool { flex: 1 1 230px; border: 1px dashed var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.clock { font: 600 2.4rem var(--mono); font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--ink); background: var(--sheet); color: var(--ink); padding: 8px 14px; border-radius: 6px; font: 500 .88rem var(--body); cursor: pointer; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.small { padding: 5px 10px; font-size: .8rem; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.tap { width: 100%; min-height: 80px; font: 600 1.1rem var(--display); letter-spacing: .04em; }
+.muted { color: var(--muted); font-size: .85rem; }
+aside.result { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 16px); display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+@media (max-width: 900px) { aside.result { position: static; } }
+.card { background: var(--sheet); border: 2px solid var(--ink); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.chip { font-family: var(--mono); font-size: .72rem; text-transform: uppercase; letter-spacing: .1em; padding: 4px 9px; border-radius: 4px; font-weight: 500; }
+.chip.estimated { background: var(--est-soft); color: var(--est); }
+.chip.invalid { background: var(--bad-soft); color: var(--bad); }
+.chip.not_available { background: var(--na-soft); color: var(--na); }
+.chip.calculated { background: var(--accent-soft); color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.big { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.big .n { font: 700 4.2rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.big .u { font-family: var(--mono); color: var(--muted); font-size: .9rem; }
+.kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.kv div { border-top: 1px solid var(--line); padding-top: 8px; }
+.kv dt { font-size: .74rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.kv dd { margin: 2px 0 0; font: 500 1.05rem var(--mono); font-variant-numeric: tabular-nums; }
+dl { margin: 0; }
+svg.range { width: 100%; height: auto; display: block; }
+svg.range text { font-family: var(--mono); font-size: 10px; fill: var(--muted); }
+.flags { margin: 0; padding-left: 18px; font-size: .85rem; display: flex; flex-direction: column; gap: 4px; }
+.flags li::marker { color: var(--est); }
+details { font-size: .85rem; }
+summary { cursor: pointer; color: var(--accent); font-weight: 500; }
+pre { font-family: var(--mono); font-size: .76rem; background: var(--paper); padding: 10px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 8px 0 0; }
+.hist { display: flex; flex-direction: column; gap: 0; }
+.hist .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: .85rem; }
+.hist .v { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
+.evidence { margin-top: 36px; display: flex; flex-direction: column; gap: 18px; }
+.tablewrap { overflow-x: auto; background: var(--sheet); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: .86rem; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 500; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.cols .block ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: .88rem; }
+.example { font-family: var(--mono); font-size: .7rem; text-transform: uppercase; letter-spacing: .1em; color: var(--est); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <div class="eyebrow">MotionPlus · cardio module · prototype v0.1</div>
+      <h1>MotionPlus VO2</h1>
+      <p class="lede">Get the most accurate VO2 max your setting allows. Tests are ranked from direct gas analysis down to no-exercise estimates, and every number shows its method, error and inputs.</p>
+    </div>
+    <p class="notice">Only gas analysis measures VO2. Everything else here is a prediction. This tool does not diagnose anything or clear anyone for exercise.</p>
+  </header>
+
+  <div class="grid">
+    <div class="stack">
+      <section class="block" aria-labelledby="h-ath">
+        <div class="block-head"><span class="step">1</span><div><h2 id="h-ath">Athlete</h2><p class="muted">Only what the equations need. Stored on this device only, if you choose to save.</p></div></div>
+        <p class="example" id="exampleTag">Example athlete loaded. Replace with real values.</p>
+        <div class="fields">
+          <label class="f" for="a_id">Athlete ID<div class="unit-row"><input id="a_id" type="text" value="ATH-001" autocomplete="off"></div></label>
+          <label class="f" for="a_age">Age<div class="unit-row"><input id="a_age" type="number" inputmode="numeric" value="25"><span class="unit">years</span></div></label>
+          <label class="f" for="a_sex">Sex used by equation<div class="unit-row"><select id="a_sex"><option value="">Choose</option><option value="male" selected>Male</option><option value="female">Female</option></select></div></label>
+          <label class="f" for="a_mass">Body mass<div class="unit-row"><input id="a_mass" type="number" inputmode="decimal" step="0.1" value="70"><span class="unit">kg</span></div></label>
+          <label class="f" for="a_height">Height<div class="unit-row"><input id="a_height" type="number" inputmode="decimal" step="0.1" value="176"><span class="unit">cm</span></div></label>
+        </div>
+        <p class="muted">The published equations were built with a binary sex term. If that does not fit the athlete, choose the closer physiological match and note it; results will carry extra uncertainty.</p>
+      </section>
+
+      <section class="block" aria-labelledby="h-scr">
+        <div class="block-head"><span class="step">2</span><div><h2 id="h-scr">Safety screening and consent</h2><p class="muted">Ask each question before any exercise test. A clear screen is not medical clearance.</p></div></div>
+        <div class="checks" id="screenQs"></div>
+        <div class="checks">
+          <label for="clinCleared"><input type="checkbox" id="clinCleared"> A qualified clinician has reviewed the flags above and cleared this specific test.</label>
+          <label for="consent"><input type="checkbox" id="consent" checked> The athlete understands the test, knows they can stop at any time, and agrees to how results are stored.</label>
+        </div>
+        <div>
+          <p class="muted" style="margin-bottom:6px">Assessor decision</p>
+          <div class="decision" id="decision" role="group" aria-label="Assessor decision">
+            <button class="seg" data-d="proceed" aria-pressed="true">Proceed</button>
+            <button class="seg" data-d="modify" aria-pressed="false">Modify</button>
+            <button class="seg" data-d="defer" aria-pressed="false">Defer</button>
+            <button class="seg" data-d="refer" aria-pressed="false">Refer</button>
+          </div>
+        </div>
+        <p class="callout" id="screenMsg"></p>
+      </section>
+
+      <section class="block" aria-labelledby="h-test">
+        <div class="block-head"><span class="step">3</span><div><h2 id="h-test">Choose a test</h2><p class="muted">Ordered from most to least accurate. Use the highest tier the athlete can safely do. Exercise tests unlock after screening.</p></div></div>
+        <div class="proto" id="protoList"></div>
+        <p class="callout info" id="protoInfo"></p>
+      </section>
+
+      <section class="block" aria-labelledby="h-run">
+        <div class="block-head"><span class="step">4</span><div><h2 id="h-run">Run it and record</h2><p class="muted">Enter what you measured. Nothing is filled in for you.</p></div></div>
+        <div class="tools" id="tools"></div>
+        <div class="fields" id="inputFields"></div>
+        <div class="checks" id="completeWrap">
+          <label for="completed"><input type="checkbox" id="completed" checked> The test was completed exactly as written (no early stop, correct course, step height or cadence).</label>
+        </div>
+      </section>
+    </div>
+
+    <aside class="result" aria-live="polite">
+      <div class="card" id="resultCard"></div>
+      <section class="block" aria-labelledby="h-hist">
+        <div class="block-head"><div><h3 id="h-hist">Saved on this device</h3><p class="muted">Compare results only within the same test.</p></div></div>
+        <div class="hist" id="hist"></div>
+        <div class="btns"><button class="btn small" id="copyJson">Copy records as JSON</button><button class="btn small" id="clearAll">Delete all</button></div>
+        <p class="muted" id="histMsg" hidden></p>
+      </section>
+    </aside>
+  </div>
+
+  <div class="evidence">
+    <section class="block"><h3>Getting the most accurate number</h3><ul class="flags" style="font-size:.9rem">
+      <li>Direct gas analysis (Tier A) is the only true measurement. Portable analysers bring it to the track or clinic.</li>
+      <li>Without gas analysis, a maximal-effort field test (Tier B) beats submaximal tests, which assume everyone's max heart rate follows an age formula.</li>
+      <li>Use a chest strap or a careful 15-second manual count for test heart rate. Wrist and phone-camera sensors drift during and right after exercise.</li>
+      <li>Measure max heart rate in a hard test once and enter it. A predicted max HR alone can be off by 10 to 20 bpm.</li>
+      <li>Retest with the same test, course, time of day and warm-up. Changes smaller than the method's error may not be real.</li>
+      <li>Only use an equation inside the group it was built on. The app flags age and sex outside that range.</li>
+    </ul></section>
+    <div><div class="eyebrow">Evidence</div><h2>Which test, for whom, and how close it gets</h2>
+      <p class="lede">Lab VO2 max testing with gas analysis is the reference. These methods trade some accuracy for cost and access. The error column is the typical gap between the estimate and a lab result in the original study group; outside that group it is usually wider.</p></div>
+    <div class="tablewrap"><table id="evTable"><thead><tr><th>Tier</th><th>Test</th><th>Effort</th><th>Equipment</th><th>Built on</th><th>Typical error</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+    <div class="cols">
+      <section class="block"><h3>Built-in safeguards</h3><ul>
+        <li>Exercise tests stay locked until screening and consent are recorded. Any yes answer needs a clinician's sign-off before Proceed is allowed.</li>
+        <li>Missing inputs are never guessed. An early stop makes the result invalid instead of scoring it anyway.</li>
+        <li>Each result is labelled Estimated, Invalid or Not available, with the equation, version and source.</li>
+        <li>No "excellent / poor" ratings or percentiles. Those need a matched, cited reference group, which comes later.</li>
+      </ul></section>
+      <section class="block"><h3>Fairness and accuracy</h3><ul>
+        <li>Most equations were built on narrow groups (Cooper: US Air Force men). The app flags age and sex outside that group.</li>
+        <li>Optical heart-rate sensors and phone-camera pulse readings lose accuracy with motion and can read worse on darker skin. A manual pulse count or chest strap is preferred for test HR.</li>
+        <li>Non-exercise estimates underrate very fit athletes and overrate inactive people.</li>
+        <li>Claims of accuracy need our own validation against lab testing before launch.</li>
+      </ul></section>
+      <section class="block"><h3>Privacy</h3><ul>
+        <li>This prototype has no server. Saved records stay in this browser and can be deleted in one click.</li>
+        <li>Collect the minimum: an athlete ID instead of a name, age instead of date of birth.</li>
+        <li>Health data rules (GDPR, HIPAA, India's DPDP Act and others) apply once data leaves the device. The full app needs consent records, role-based access and an audit trail.</li>
+      </ul></section>
+    </div>
+  </div>
+</div>
+
+<script>
+/*ENGINE*/
+</script>
+<script>
+(function () {
+  const E = window.MotionPlusEngine;
+  const $ = (id) => document.getElementById(id);
+  const STORE = 'motionplus_vo2_records_v1';
+
+  const SCREEN = [
+    'Chest pain or pressure at rest or during activity',
+    'Fainting, near-fainting or dizziness with exercise',
+    'Breathlessness out of proportion to effort',
+    'Racing, skipping or irregular heartbeat',
+    'Known heart, lung, kidney or metabolic condition (including diabetes)',
+    'Fever, infection or acute illness in the last 2 weeks',
+    'A doctor has advised limiting physical activity',
+    'Pregnant, or an injury that makes running, stepping or walking painful',
+  ];
+
+  const state = {
+    decision: 'proceed',
+    protocol: 'cooper_12min',
+    inputs: { cooper_12min: { distance_m: 2800 } },
+    lastResult: null,
+  };
+
+  // ---------- screening ----------
+  const screenWrap = $('screenQs');
+  SCREEN.forEach((q, i) => {
+    const l = document.createElement('label');
+    l.setAttribute('for', 'sq' + i);
+    l.innerHTML = '<input type="checkbox" id="sq' + i + '"> <span></span>';
+    l.querySelector('span').textContent = q;
+    screenWrap.appendChild(l);
+  });
+  function anyFlag() { return SCREEN.some((_, i) => $('sq' + i).checked); }
+  function screening() {
+    const flagged = anyFlag();
+    const cleared = $('clinCleared').checked;
+    const consent = $('consent').checked;
+    const blocked = !consent || (flagged && !cleared);
+    if (blocked && (state.decision === 'proceed' || state.decision === 'modify')) state.decision = flagged ? 'refer' : 'defer';
+    document.querySelectorAll('#decision .seg').forEach((b) => {
+      const d = b.dataset.d;
+      b.disabled = blocked && (d === 'proceed' || d === 'modify');
+      b.setAttribute('aria-pressed', String(d === state.decision));
+    });
+    const msg = $('screenMsg');
+    msg.className = 'callout';
+    if (!consent) { msg.className = 'callout warn'; msg.textContent = 'Record consent before any test. Without it nothing is calculated or saved.'; }
+    else if (flagged && !cleared) { msg.className = 'callout warn'; msg.textContent = 'At least one answer is yes. Exercise tests stay locked until a clinician reviews and clears this athlete. No-exercise estimates remain available.'; }
+    else if (flagged && cleared) { msg.textContent = 'Flags raised and clinician clearance recorded. Note who cleared the athlete in your records.'; }
+    else { msg.textContent = 'No flags raised. This is not medical clearance; use your clinic\'s screening pathway and judgement.'; }
+    return { decision: state.decision, consent };
+  }
+  $('decision').addEventListener('click', (e) => {
+    const b = e.target.closest('.seg');
+    if (!b || b.disabled) return;
+    state.decision = b.dataset.d;
+    render();
+  });
+  ['clinCleared', 'consent'].forEach((id) => $(id).addEventListener('change', render));
+  screenWrap.addEventListener('change', render);
+
+  // ---------- protocols ----------
+  const EFFORT = { maximal: ['max', 'Max effort'], submaximal: ['sub', 'Moderate effort'], none: ['none', 'No exercise'] };
+  function protoList(scr) {
+    const list = $('protoList');
+    list.innerHTML = '';
+    const exerciseOk = scr.consent && (scr.decision === 'proceed' || scr.decision === 'modify');
+    E.PROTOCOLS.forEach((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.id = p.id;
+      b.setAttribute('aria-pressed', String(p.id === state.protocol));
+      b.disabled = p.exertion !== 'none' && !exerciseOk;
+      const [cls, txt] = EFFORT[p.exertion];
+      b.innerHTML = '<span class="tag t' + p.tier + '"></span><span class="pn"></span><span class="pm"></span>';
+      b.querySelector('.tag').textContent = 'Tier ' + p.tier + ' · ' + E.TIERS[p.tier];
+      b.querySelector('.pn').textContent = p.name;
+      b.querySelector('.pm').textContent = txt + '. ' + p.equipment;
+      list.appendChild(b);
+    });
+    const p = E.getProtocol(state.protocol);
+    $('protoInfo').textContent = p.population.note + ' ' + (p.protocolNote || '') + ' ' + p.errorNote;
+  }
+  $('protoList').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b || b.disabled) return;
+    state.protocol = b.dataset.id;
+    stopAll();
+    buildRun();
+    render();
+  });
+
+  // ---------- run section ----------
+  function buildRun() {
+    const p = E.getProtocol(state.protocol);
+    const vals = state.inputs[p.id] || (state.inputs[p.id] = {});
+    const wrap = $('inputFields');
+    wrap.innerHTML = '';
+    p.inputs.forEach((f) => {
+      const l = document.createElement('label');
+      l.className = 'f';
+      l.setAttribute('for', 'in_' + f.key);
+      l.innerHTML = '<span></span><div class="unit-row"><input type="number" inputmode="decimal" step="any"><span class="unit"></span></div>';
+      l.querySelector('span').textContent = f.label;
+      const inp = l.querySelector('input');
+      inp.id = 'in_' + f.key;
+      inp.value = vals[f.key] != null ? vals[f.key] : '';
+      inp.placeholder = f.optional ? 'optional' : '';
+      inp.addEventListener('input', () => { vals[f.key] = inp.value === '' ? null : inp.value; render(); });
+      l.querySelector('.unit').textContent = f.unit;
+      wrap.appendChild(l);
+    });
+    $('completeWrap').hidden = p.exertion === 'none';
+    buildTools(p);
+  }
+
+  function setInput(key, v) {
+    const inp = $('in_' + key);
+    if (!inp) return;
+    inp.value = v;
+    inp.dispatchEvent(new Event('input'));
+  }
+
+  // ---------- audio ----------
+  let ctx = null;
+  function beep(freq, dur) {
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.frequency.value = freq || 880; g.gain.value = 0.15;
+      o.connect(g); g.connect(ctx.destination);
+      o.start(); o.stop(ctx.currentTime + (dur || 0.07));
+    } catch (e) { /* audio unavailable */ }
+  }
+
+  const timers = [];
+  function stopAll() { while (timers.length) clearInterval(timers.pop()); }
+  const fmt = (s) => { s = Math.max(0, s); const m = Math.floor(s / 60); const r = s - m * 60; return String(m).padStart(2, '0') + ':' + r.toFixed(1).padStart(4, '0'); };
+
+  function toolBox(title, note) {
+    const t = document.createElement('div');
+    t.className = 'tool';
+    t.innerHTML = '<h3></h3><p class="muted"></p>';
+    t.querySelector('h3').textContent = title;
+    t.querySelector('p').textContent = note;
+    $('tools').appendChild(t);
+    return t;
+  }
+
+  function stopwatchTool(p) {
+    const countdown = p.id === 'cooper_12min' ? 720 : null;
+    const t = toolBox(countdown ? '12-minute countdown' : 'Stopwatch', countdown ? 'Beeps at 6 min, 1 min left and the end. Measure the distance when it stops.' : 'Stop when the athlete crosses the finish line, then use the time.');
+    const c = document.createElement('div'); c.className = 'clock'; c.textContent = countdown ? fmt(countdown) : fmt(0);
+    const bs = document.createElement('div'); bs.className = 'btns';
+    bs.innerHTML = '<button class="btn primary" type="button">Start</button><button class="btn" type="button">Stop</button><button class="btn" type="button">Reset</button>' + (countdown ? '' : '<button class="btn" type="button" disabled>Use this time</button>');
+    t.append(c, bs);
+    const [start, stop, reset, use] = bs.querySelectorAll('button');
+    let t0 = null, elapsed = 0, id = null, cues = new Set();
+    const tick = () => {
+      const s = elapsed + (t0 ? (performance.now() - t0) / 1000 : 0);
+      if (countdown) {
+        const left = countdown - s;
+        c.textContent = fmt(left);
+        if (left <= 360 && !cues.has(1)) { cues.add(1); beep(660, .2); }
+        if (left <= 60 && !cues.has(2)) { cues.add(2); beep(660, .2); }
+        if (left <= 0) { beep(990, .6); stopIt(); c.textContent = fmt(0); }
+      } else c.textContent = fmt(s);
+      return s;
+    };
+    const stopIt = () => { if (t0) { elapsed += (performance.now() - t0) / 1000; t0 = null; } clearInterval(id); if (use) use.disabled = elapsed <= 0; };
+    start.onclick = () => { if (t0) return; beep(880, .15); t0 = performance.now(); id = setInterval(tick, 100); timers.push(id); };
+    stop.onclick = () => { stopIt(); tick(); };
+    reset.onclick = () => { stopIt(); elapsed = 0; cues = new Set(); tick(); if (use) use.disabled = true; };
+    if (use) use.onclick = () => setInput('time_min', (elapsed / 60).toFixed(2));
+  }
+
+  function metronomeTool(p) {
+    const t = toolBox('Step metronome', 'Runs 3 minutes at the cadence for the selected sex, then cues the 5 to 20 second pulse count.');
+    const c = document.createElement('div'); c.className = 'clock'; c.textContent = fmt(180);
+    const s = document.createElement('p'); s.className = 'muted';
+    const bs = document.createElement('div'); bs.className = 'btns';
+    bs.innerHTML = '<button class="btn primary" type="button">Start 3 min</button><button class="btn" type="button">Stop</button>';
+    t.append(c, s, bs);
+    const [go, stop] = bs.querySelectorAll('button');
+    const bpm = () => ($('a_sex').value === 'female' ? 88 : 96);
+    s.textContent = 'Metronome ' + bpm() + ' beats/min (' + bpm() / 4 + ' steps/min). Step 41.3 cm.';
+    let id = null, beat = null;
+    const end = () => { clearInterval(id); clearInterval(beat); };
+    go.onclick = () => {
+      end();
+      const t0 = performance.now();
+      beat = setInterval(() => beep(1000, .04), 60000 / bpm()); timers.push(beat);
+      id = setInterval(() => {
+        const e = (performance.now() - t0) / 1000;
+        if (e < 180) { c.textContent = fmt(180 - e); return; }
+        clearInterval(beat);
+        if (e < 185) { c.textContent = 'Stand still ' + Math.ceil(185 - e); return; }
+        if (e < 200) { if (!go.dataset.c) { go.dataset.c = 1; beep(880, .2); } c.textContent = 'Count ' + Math.ceil(200 - e); return; }
+        beep(880, .5); end(); delete go.dataset.c; c.textContent = 'Enter count x 4';
+      }, 100); timers.push(id);
+    };
+    stop.onclick = () => { end(); c.textContent = fmt(180); };
+  }
+
+  function pulseTool(targetKey, title) {
+    const t = toolBox(title || 'Pulse helper', 'Tap once per beat you feel at the wrist or neck for 15 seconds, or count silently and type the count.');
+    const tap = document.createElement('button'); tap.type = 'button'; tap.className = 'btn tap'; tap.textContent = 'Tap on each beat';
+    const row = document.createElement('div'); row.className = 'btns';
+    row.innerHTML = '<label class="f" style="flex:1"><span>Beats in 15 s</span><div class="unit-row"><input type="number" inputmode="numeric"><span class="unit">beats</span></div></label>';
+    const inp = row.querySelector('input'); inp.id = 'cnt_' + targetKey; row.querySelector('label').setAttribute('for', inp.id);
+    const use = document.createElement('button'); use.type = 'button'; use.className = 'btn'; use.textContent = 'Use x 4 as bpm';
+    row.appendChild(use);
+    t.append(tap, row);
+    let t0 = null, n = 0, id = null;
+    tap.onclick = () => {
+      if (!t0) { t0 = performance.now(); n = 0; beep(880, .15); id = setInterval(() => {
+        const left = 15 - (performance.now() - t0) / 1000;
+        if (left <= 0) { clearInterval(id); beep(880, .4); t0 = null; tap.textContent = n + ' beats counted. Tap to start again'; inp.value = n; return; }
+        tap.textContent = n + ' beats · ' + left.toFixed(0) + ' s left';
+      }, 100); timers.push(id); return; }
+      n++;
+    };
+    use.onclick = () => { const v = Number(inp.value); if (v > 0) setInput(targetKey, v * 4); };
+  }
+
+  function buildTools(p) {
+    $('tools').innerHTML = '';
+    if (p.id === 'cooper_12min' || p.id === 'acsm_1_5mile' || p.id === 'rockport_1mile') stopwatchTool(p);
+    if (p.id === 'queens_step') metronomeTool(p);
+    if (p.id === 'rockport_1mile') pulseTool('end_hr_bpm', 'Finish pulse');
+    if (p.id === 'queens_step') pulseTool('recovery_hr_bpm', 'Recovery pulse');
+    if (p.id === 'uth_hr_ratio') pulseTool('rest_hr_bpm', 'Resting pulse (repeat for 60 s if irregular)');
+    if (p.id === 'jackson_nonexercise') {
+      const t = toolBox('Activity level guide', 'Pick the line that best matches the last month.');
+      const sel = document.createElement('select'); sel.className = 'plain'; sel.id = 'parSel';
+      ['0 · Avoid walking or exertion', '1 · Walk for pleasure, use stairs', '2 · 10 to 60 min of activity a week', '3 · Over 1 hour of activity a week', '4 · Run under 1 mile, or under 30 min a week', '5 · Run 1 to 5 miles, or 30 to 60 min a week', '6 · Run 5 to 10 miles, or 1 to 3 hours a week', '7 · Run over 10 miles, or over 3 hours a week']
+        .forEach((txt, i) => { const o = document.createElement('option'); o.value = i; o.textContent = txt; sel.appendChild(o); });
+      sel.value = state.inputs[p.id].par != null ? state.inputs[p.id].par : '';
+      sel.onchange = () => setInput('par', sel.value);
+      t.appendChild(sel);
+    }
+  }
+
+  // ---------- result ----------
+  function athlete() {
+    const n = (id) => ($(id).value === '' ? null : Number($(id).value));
+    return { age: n('a_age'), sex: $('a_sex').value || null, mass_kg: n('a_mass'), height_cm: n('a_height') };
+  }
+
+  const LABELS = { measured: 'Measured', estimated: 'Estimated', invalid: 'Invalid', not_available: 'Not available', calculated: 'Calculated' };
+
+  function rangeSvg(r) {
+    const W = 360, lo = 15, hi = 85, x = (v) => 20 + ((Math.min(Math.max(v, lo), hi) - lo) / (hi - lo)) * (W - 40);
+    let s = '<svg class="range" viewBox="0 0 ' + W + ' 54" role="img" aria-label="Estimate on a 15 to 85 mL/kg/min scale">';
+    s += '<line x1="20" x2="' + (W - 20) + '" y1="22" y2="22" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>';
+    if (r.typical_range_ml_kg_min) {
+      const [a, b] = r.typical_range_ml_kg_min;
+      s += '<rect x="' + x(a) + '" y="16" width="' + Math.max(x(b) - x(a), 2) + '" height="12" rx="6" fill="var(--est-soft)" stroke="var(--est)"/>';
+    }
+    s += '<circle cx="' + x(r.relative_ml_kg_min) + '" cy="22" r="7" fill="var(--ink)"/>';
+    [15, 30, 45, 60, 75, 85].forEach((v) => { s += '<text x="' + x(v) + '" y="48" text-anchor="middle">' + v + '</text>'; });
+    return s + '</svg>';
+  }
+
+  function renderResult(scr) {
+    const card = $('resultCard');
+    const p = E.getProtocol(state.protocol);
+    let r;
+    if (!scr.consent) r = { label: 'not_available', reason: 'Consent has not been recorded.', flags: [] };
+    else r = E.calculate(p.id, { athlete: athlete(), inputs: state.inputs[p.id], completed: $('completed').checked, screening: { decision: scr.decision } });
+    state.lastResult = r;
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    let h = '<div><div class="eyebrow">' + esc(p.name) + ' · v' + p.version + '</div></div>';
+    h += '<div class="chips"><span class="chip ' + r.label + '">' + LABELS[r.label] + '</span>' + (r.tier ? '<span class="chip not_available">Tier ' + r.tier + '</span>' : '') + (r.qualified ? '<span class="chip invalid">Outside validated group</span>' : '') + '</div>';
+    if (r.label !== 'estimated' && r.label !== 'measured') {
+      h += '<div class="big"><span class="n">—</span><span class="u">mL/kg/min</span></div><p>' + esc(r.reason) + '</p>';
+      card.innerHTML = h; return;
+    }
+    h += '<div><div class="big"><span class="n">' + r.relative_ml_kg_min.toFixed(1) + '</span><span class="u">mL/kg/min ' + (r.label === 'measured' ? 'measured' : 'estimated') + ' VO2 max</span></div>';
+    h += r.typical_range_ml_kg_min ? '<p class="muted">' + (r.label === 'measured' ? 'Normal test-to-test variation: ' : 'Typical range for this method: ') + r.typical_range_ml_kg_min[0] + ' to ' + r.typical_range_ml_kg_min[1] + '</p>' : '<p class="muted">No published error for this equation, so no range is shown.</p>';
+    h += '</div>' + rangeSvg(r);
+    h += '<dl class="kv"><div><dt>Absolute</dt><dd>' + (r.absolute_l_min != null ? r.absolute_l_min.toFixed(2) + ' L/min' : 'needs mass') + '</dd></div><div><dt>METs</dt><dd>' + r.mets.toFixed(1) + '</dd></div></dl>';
+    if (r.flags.length) h += '<ul class="flags">' + r.flags.map((f) => '<li>' + esc(f.text) + '</li>').join('') + '</ul>';
+    h += '<p class="muted">' + esc(r.limitations[0]) + ' ' + esc(r.error_note) + '</p>';
+    h += '<details><summary>How this was calculated</summary><pre>' + esc('formula: ' + r.formula + '\nsource:  ' + r.source + '\ninputs:  ' + JSON.stringify(r.input_snapshot)) + '</pre></details>';
+    h += '<div class="btns"><button class="btn primary" type="button" id="saveBtn">Save to this device</button></div>';
+    card.innerHTML = h;
+    $('saveBtn').onclick = save;
+  }
+
+  // ---------- storage ----------
+  function load() { try { return JSON.parse(localStorage.getItem(STORE) || '[]'); } catch (e) { return []; } }
+  function persist(list) { try { localStorage.setItem(STORE, JSON.stringify(list)); return true; } catch (e) { return false; } }
+  function note(t) { const m = $('histMsg'); m.hidden = false; m.textContent = t; }
+  function save() {
+    const r = state.lastResult; if (!r || (r.label !== 'estimated' && r.label !== 'measured')) return;
+    const list = load();
+    list.unshift({ at: new Date().toISOString(), athlete_id: $('a_id').value, screening: state.decision, result: r });
+    if (!persist(list)) note('This browser blocked local storage, so the record was not saved.');
+    else note('Saved on this device.');
+    renderHist();
+  }
+  function renderHist() {
+    const list = load();
+    const el = $('hist');
+    if (!list.length) { el.innerHTML = '<p class="muted">No saved results yet. Results you save appear here, newest first.</p>'; return; }
+    el.innerHTML = '';
+    list.slice(0, 12).forEach((rec) => {
+      const p = E.getProtocol(rec.result.protocol_id);
+      const row = document.createElement('div'); row.className = 'row';
+      row.innerHTML = '<div><div></div><div class="muted"></div></div><div class="v"></div>';
+      row.children[0].children[0].textContent = rec.athlete_id + ' · ' + (p ? p.name : rec.result.protocol_id);
+      row.children[0].children[1].textContent = new Date(rec.at).toLocaleString();
+      row.children[1].textContent = rec.result.relative_ml_kg_min.toFixed(1);
+      el.appendChild(row);
+    });
+  }
+  $('copyJson').onclick = () => {
+    const txt = JSON.stringify(load(), null, 2);
+    const done = () => note('Copied ' + load().length + ' records.');
+    if (navigator.clipboard) navigator.clipboard.writeText(txt).then(done, () => note('Copy was blocked. Records: ' + txt.slice(0, 200)));
+    else note('Copy is not available in this view.');
+  };
+  $('clearAll').onclick = (e) => {
+    const b = e.currentTarget;
+    if (!b.dataset.armed) { b.dataset.armed = 1; b.textContent = 'Tap again to delete all'; setTimeout(() => { delete b.dataset.armed; b.textContent = 'Delete all'; }, 4000); return; }
+    persist([]); delete b.dataset.armed; b.textContent = 'Delete all'; note('All records deleted from this device.'); renderHist();
+  };
+
+  // ---------- evidence table ----------
+  const tb = document.querySelector('#evTable tbody');
+  E.PROTOCOLS.forEach((p) => {
+    const tr = document.createElement('tr');
+    const err = p.error ? (p.error.type === 'abs' ? '± ' + p.error.value + ' mL/kg/min' : '± ' + p.error.value + '%') : 'Not reported';
+    [p.tier + ' · ' + E.TIERS[p.tier], p.name, EFFORT[p.exertion][1], p.equipment, p.population.note, err, p.source].forEach((v, i) => {
+      const td = document.createElement('td'); td.textContent = v; if (i === 5) td.className = 'num'; tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+
+  // ---------- wiring ----------
+  ['a_age', 'a_sex', 'a_mass', 'a_height', 'completed'].forEach((id) => $(id).addEventListener('input', () => { $('exampleTag').hidden = true; render(); }));
+  $('a_sex').addEventListener('change', () => { if (state.protocol === 'queens_step') buildRun(); });
+
+  function render() {
+    const scr = screening();
+    const p = E.getProtocol(state.protocol);
+    const exerciseOk = scr.consent && (scr.decision === 'proceed' || scr.decision === 'modify');
+    if (p.exertion !== 'none' && !exerciseOk) { state.protocol = 'jackson_nonexercise'; state.inputs.jackson_nonexercise = state.inputs.jackson_nonexercise || {}; stopAll(); buildRun(); }
+    protoList(scr);
+    renderResult(scr);
+  }
+
+  buildRun();
+  render();
+  renderHist();
+})();
+</script>

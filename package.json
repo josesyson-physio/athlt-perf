@@ -1,0 +1,10 @@
+{
+  "name": "athlete-performance",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MotionPlus athlete performance and VO2 max tracking",
+  "scripts": {
+    "test": "node --test engine/engine.test.js",
+    "build": "node scripts/build.js"
+  }
+}
