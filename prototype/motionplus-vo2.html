@@ -208,7 +208,7 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-spa
       <section class="block" aria-labelledby="h-hist">
         <div class="block-head"><div><h3 id="h-hist">Saved on this device</h3><p class="muted">Compare results only within the same test.</p></div></div>
         <div class="hist" id="hist"></div>
-        <div class="btns"><button class="btn small" id="copyJson">Copy records as JSON</button><button class="btn small" id="clearAll">Delete all</button></div>
+        <div class="btns" id="histBtns"><button class="btn small" id="copyJson">Copy records as JSON</button><button class="btn small" id="clearAll">Delete all</button></div>
         <p class="muted" id="histMsg" hidden></p>
       </section>
     </aside>
@@ -916,5 +916,6 @@ td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; white-spa
   buildRun();
   render();
   renderHist();
+  window.MotionPlusApp = { STORE, load, persist, note, renderHist };
 })();
 </script>
