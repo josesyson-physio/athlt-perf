@@ -113,9 +113,9 @@ function StepScreening({ a, set }) {
       <${Check} label="The athlete (or guardian) gave informed consent for these tests and for storing the results" checked=${sc.consent} onChange=${(v) => set('screening.consent', v)} /></div>
     <div class="card"><div class="card-head"><div><h2>Pre-test screening</h2><p>Tick any that apply. A clear screen is not medical clearance.</p></div></div>
       ${SCREEN_QUESTIONS.map((q, i) => html`<${Check} label=${q} checked=${!!(sc.answers || [])[i]} onChange=${(v) => setAnswer(i, v)} />`)}
-      ${flagged ? html`<div class="grid" style="gap:8px"><${Notice} kind="warn">A screening answer needs review. Exercise tests stay locked until a qualified clinician clears this athlete for them.</${Notice}>
-        <${Check} label="A qualified clinician reviewed these answers and cleared the planned tests" checked=${sc.clinicianCleared} onChange=${(v) => set('screening.clinicianCleared', v)} />
-        ${sc.clinicianCleared ? html`<${Field} label="Cleared by (name and role)" value=${sc.clearedBy} onInput=${(v) => set('screening.clearedBy', v)} />` : null}</div>` : null}
+      ${flagged ? html`<div class="grid" style="gap:8px"><${Notice} kind="warn">A "yes" answer means hard fitness tests could be unsafe today. They stay locked until a doctor or physio says they are OK.</${Notice}>
+        <${Check} label="A doctor or physio checked these answers and said the tests are OK" checked=${sc.clinicianCleared} onChange=${(v) => set('screening.clinicianCleared', v)} />
+        ${sc.clinicianCleared ? html`<${Field} label="Who said OK (name)" value=${sc.clearedBy} onInput=${(v) => set('screening.clearedBy', v)} />` : null}</div>` : null}
     </div>
     <div class="card"><h2>Assessor decision</h2>
       <${Seg} label="Assessor decision" value=${sc.decision} onChange=${(v) => set('screening.decision', v)} options=${[{ value: 'proceed', label: 'Proceed', disabled: blockedProceed }, { value: 'modify', label: 'Modify', disabled: blockedProceed }, { value: 'defer', label: 'Defer' }, { value: 'refer', label: 'Refer' }]} />

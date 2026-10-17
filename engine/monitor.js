@@ -134,7 +134,7 @@
       const hits = last7.filter((c) => c.redFlags && c.redFlags[k]);
       if (hits.length) {
         const lastHit = hits[hits.length - 1];
-        out.push(signal('urgent', 'red_' + k, RED[k], 'Reported on ' + plural(hits.length, 'day') + ' in the last 7 days. Stop training and contact the clinician today.', lastHit.date, { evidence: hits.map((c) => c.date) }));
+        out.push(signal('urgent', 'red_' + k, RED[k], 'Reported on ' + plural(hits.length, 'day') + ' in the last 7 days. Stop training and see a doctor today.', lastHit.date, { evidence: hits.map((c) => c.date) }));
       }
     });
 
@@ -145,7 +145,7 @@
       const ds = days.map(day);
       const consecutive = ds.some((d, i) => i > 0 && d - ds[i - 1] === 1 && t - d < 3);
       if (days.length >= R.painDaysOf7 || consecutive) {
-        out.push(signal('review', 'pain_repeat', r + ' pain is repeating', r + ' pain on ' + plural(days.length, 'day') + ' of the last 7' + (consecutive ? ', including consecutive days' : '') + '. Review before progressing training.', days[days.length - 1], { region: r, evidence: days }));
+        out.push(signal('review', 'pain_repeat', r + ' pain is repeating', r + ' pain on ' + plural(days.length, 'day') + ' of the last 7' + (consecutive ? ', including consecutive days' : '') + '. Go easy on this area until it settles.', days[days.length - 1], { region: r, evidence: days }));
       }
     });
 
@@ -153,7 +153,7 @@
     const high = checkins.filter((c) => within(c.date, 3) && c.pain && ((isNum(num(c.painScore)) && num(c.painScore) >= R.painHigh) || c.painAffectsRunning));
     if (high.length) {
       const h = high[high.length - 1];
-      out.push(signal('review', 'pain_high', 'Pain is high or changing how they move', 'Pain ' + (isNum(num(h.painScore)) ? num(h.painScore) + '/10' : '') + (h.painAffectsRunning ? ', changing how they move' : '') + ' in ' + ((h.regions || []).join(', ') || 'an unrecorded region') + ' on ' + h.date + '. Review before the next hard session.', h.date, { evidence: high.map((c) => c.date), region: (h.regions || [])[0] || '' }));
+      out.push(signal('review', 'pain_high', 'Pain is high or changing how they move', 'Pain ' + (isNum(num(h.painScore)) ? num(h.painScore) + '/10' : '') + (h.painAffectsRunning ? ', changing how they move' : '') + ' in ' + ((h.regions || []).join(', ') || 'an unrecorded region') + ' on ' + h.date + '. Make the next hard session easier for this area.', h.date, { evidence: high.map((c) => c.date), region: (h.regions || [])[0] || '' }));
     }
 
     // Review: OSTRC-H2 substantial problem in the last 14 days.
@@ -165,11 +165,11 @@
       });
     });
 
-    // Confidential items, clinician view only.
+    // Private items: shown with plain wording, to be handled in a private talk.
     const period = last7.filter((c) => c.sensitive && c.sensitive.periodChange === true);
-    if (period.length) out.push(signal('review', 'period_change', 'Confidential health item', 'Change to the menstrual cycle reported. Follow the clinic’s confidential pathway.', period[period.length - 1].date, { sensitive: true, evidence: period.map((c) => c.date) }));
+    if (period.length) out.push(signal('review', 'period_change', 'Private: talk to the athlete', 'Change to their period reported. Talk to them privately.', period[period.length - 1].date, { sensitive: true, evidence: period.map((c) => c.date) }));
     const lowMood = last7.filter((c) => c.sensitive && isNum(num(c.sensitive.mood)) && num(c.sensitive.mood) <= 2);
-    if (lowMood.length >= R.highScoreDays) out.push(signal('review', 'mood_low', 'Confidential health item', 'Low mood on ' + plural(lowMood.length, 'day') + ' of the last 7. Follow the clinic’s confidential pathway.', lowMood[lowMood.length - 1].date, { sensitive: true, evidence: lowMood.map((c) => c.date) }));
+    if (lowMood.length >= R.highScoreDays) out.push(signal('review', 'mood_low', 'Private: talk to the athlete', 'Low mood on ' + plural(lowMood.length, 'day') + ' of the last 7. Talk to them privately.', lowMood[lowMood.length - 1].date, { sensitive: true, evidence: lowMood.map((c) => c.date) }));
 
     // Watch: session RPE above the athlete's usual for that session type, twice running.
     [...new Set(sessions.map((s) => s.type))].forEach((type) => {

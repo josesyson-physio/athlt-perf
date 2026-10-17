@@ -2,13 +2,13 @@
 // Everything is kept in memory after load and written through on every change.
 
 const DB_NAME = 'motionplus';
-const DB_VERSION = 2;
-const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews'];
-// Monitoring records, one store each: daily check-ins, training sessions, weekly OSTRC-H2 and signal reviews.
-export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews'];
+const DB_VERSION = 3;
+const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews', 'focus'];
+// Monitoring records, one store each: daily check-ins, training sessions, weekly health (older data), signal notes and focus checks.
+export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews', 'focus'];
 
 let db = null;
-const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
+const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], focus: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
 const listeners = new Set();
 
 function openDb() {

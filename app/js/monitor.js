@@ -1,23 +1,19 @@
-// Monitoring glue: runs the rules for each athlete, attaches reviews and guards clinician-only detail.
+// Monitoring glue: runs the rules for each athlete and attaches the notes people saved.
 import * as store from './store.js';
 
 export const M = globalThis.MotionPlusMonitor;
 export const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
 
 export const LEVEL = {
-  urgent: { name: 'Urgent', cls: 't-red', icon: 'alert' },
-  review: { name: 'Review', cls: 't-amber', icon: 'alert' },
-  watch: { name: 'Watch', cls: 't-violet', icon: 'trend' },
-  no_data: { name: 'No data', cls: 't-blue', icon: 'info' },
-  none: { name: 'No flags', cls: 't-green', icon: 'check' },
+  urgent: { name: 'Stop and get help', cls: 't-red', icon: 'alert' },
+  review: { name: 'Look at today', cls: 't-amber', icon: 'alert' },
+  watch: { name: 'Keep an eye on', cls: 't-violet', icon: 'trend' },
+  no_data: { name: 'No answers yet', cls: 't-blue', icon: 'info' },
+  none: { name: 'All good', cls: 't-green', icon: 'check' },
 };
 
-// Athletes who can be monitored: monitoring consent recorded and, under 18, the athlete's own assent too.
-export function canMonitor(a) {
-  if (!a || !a.monitorConsent) return false;
-  const age = store.ageAt(a);
-  return age == null || age >= 18 || !!a.monitorAssent;
-}
+// Every athlete can check in; no sign-off step.
+export const canMonitor = (a) => !!a;
 
 export function evaluateAthlete(a, date) {
   const d = date || today();
@@ -40,34 +36,7 @@ export function squad(date) {
 
 export async function saveReview(athleteId, s, note, plan) {
   const at = new Date().toISOString();
-  return store.saveRecord('reviews', { id: s.key + '|' + at, athleteId, rule: s.rule, coversDate: s.latest, note, plan, by: store.getState().settings.assessorName || 'Unnamed reviewer', at });
-}
-
-// ---------- clinician view ----------
-// Phase 1 runs on a shared device. A clinician PIN hides health detail from anyone else using it.
-// This is a privacy screen, not security: the data is still on the device.
-async function hash(pin) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('motionplus:' + pin));
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-const KEY = 'mp-clinician';
-export const pinSet = () => !!store.getState().settings.clinicianPinHash;
-export function isClinician() {
-  if (!pinSet()) return true;
-  try { return sessionStorage.getItem(KEY) === store.getState().settings.clinicianPinHash; } catch (e) { return false; }
-}
-export async function unlock(pin) {
-  const h = await hash(pin);
-  if (h !== store.getState().settings.clinicianPinHash) return false;
-  try { sessionStorage.setItem(KEY, h); } catch (e) { /* view stays locked */ }
-  return true;
-}
-export function lock() { try { sessionStorage.removeItem(KEY); } catch (e) { /* nothing to clear */ } }
-export async function setPin(pin) {
-  if (!pin) { await store.saveSettings({ clinicianPinHash: '' }); lock(); return; }
-  const h = await hash(pin);
-  await store.saveSettings({ clinicianPinHash: h });
-  try { sessionStorage.setItem(KEY, h); } catch (e) { /* view stays locked */ }
+  return store.saveRecord('reviews', { id: s.key + '|' + at, athleteId, rule: s.rule, coversDate: s.latest, note, plan, by: store.getState().settings.assessorName || 'Coach', at });
 }
 
 // ---------- pilot export ----------

@@ -10,10 +10,12 @@ import { Report, Reports } from './pages/report.js';
 import { Analytics } from './pages/analytics.js';
 import { Protocols } from './pages/protocols.js';
 import { Settings } from './pages/settings.js';
-import { Signals, SquadCheckin, CheckinForm, WeeklyForm, TrainingLog, SessionForm } from './pages/monitor.js';
+import { Signals, SquadCheckin, CheckinForm, TrainingLog, SessionForm } from './pages/monitor.js';
+import { FocusList, FocusPlan } from './pages/focus.js';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: 'home', group: 'Workspace' },
+  { path: '/focus', label: 'Focus plans', short: 'Focus', icon: 'trend', group: 'Monitor' },
   { path: '/signals', label: 'Signals', icon: 'pulse', group: 'Monitor' },
   { path: '/checkin', label: 'Squad check-in', short: 'Check-in', icon: 'check', group: 'Monitor' },
   { path: '/training', label: 'Training log', short: 'Training', icon: 'bolt', group: 'Monitor' },
@@ -44,11 +46,12 @@ function route(r) {
   if (a === 'reports') return html`<${Report} id=${b} />`;
   if (a === 'signals') return html`<${Signals} query=${r.query} />`;
   if (a === 'checkin' && !b) return html`<${SquadCheckin} />`;
-  if (a === 'checkin' && c === 'weekly') return html`<${WeeklyForm} id=${b} />`;
   if (a === 'checkin') return html`<${CheckinForm} id=${b} />`;
   if (a === 'training' && !b) return html`<${TrainingLog} query=${r.query} />`;
   if (a === 'training' && b === 'new') return html`<${SessionForm} />`;
   if (a === 'training') return html`<${SessionForm} id=${b} />`;
+  if (a === 'focus' && !b) return html`<${FocusList} />`;
+  if (a === 'focus') return html`<${FocusPlan} id=${b} />`;
   if (a === 'analytics') return html`<${Analytics} query=${r.query} />`;
   if (a === 'protocols') return html`<${Protocols} />`;
   if (a === 'settings') return html`<${Settings} />`;
