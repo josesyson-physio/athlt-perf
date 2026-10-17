@@ -2,6 +2,7 @@
 // and can be removed in one step from Settings. Values are invented, not real athletes.
 import * as store from './store.js';
 import { calculate } from './calc.js';
+import { today } from './monitor.js';
 
 const PEOPLE = [
   { name: 'Rohan Mehta', sex: 'male', dob: '2004-03-18', heightCm: 178, massKg: 72, sport: 'Football', position: 'Midfielder', level: 'Semi-professional', dominantSide: 'Right' },
@@ -18,7 +19,7 @@ function monthsAgo(n) {
 export async function loadExamples() {
   const made = [];
   for (const [i, p] of PEOPLE.entries()) {
-    const athlete = await store.saveAthlete(Object.assign({ example: true, consentOnFile: true, medicalNotes: '' }, p));
+    const athlete = await store.saveAthlete(Object.assign({ example: true, consentOnFile: true, medicalNotes: '', monitorConsent: true, monitorConsentBy: 'Athlete (18 or over)', monitorConsentDate: daysAgo(40) }, p));
     made.push(athlete);
     const base = 8 + i * 1.7;
     for (const [k, ago] of [4, 2, 0].entries()) {
@@ -42,7 +43,44 @@ export async function loadExamples() {
       await store.saveAssessment(a);
     }
   }
+  await loadMonitoring(made);
   return made;
+}
+
+function daysAgo(n) {
+  return new Date(Date.parse(today()) - n * 864e5).toISOString().slice(0, 10);
+}
+
+// Four weeks of invented monitoring. Kavya develops calf pain and harder intervals (Review and Watch),
+// Rohan stops checking in (No data), Aarav sleeps short on three nights (Watch).
+async function loadMonitoring(made) {
+  const M = globalThis.MotionPlusMonitor;
+  const [rohan, kavya, aarav] = made;
+  const ex = { example: true };
+  for (let n = 27; n >= 0; n--) {
+    const date = daysAgo(n);
+    const dow = new Date(date + 'T12:00:00Z').getUTCDay();
+    const wobble = (n * 7) % 3;
+    if (n >= 2) await store.saveRecord('checkins', Object.assign({ id: 'CI-EX0' + n, athleteId: rohan.id, date, pain: false, regions: [], fatigue: 2 + (wobble === 2 ? 1 : 0), soreness: dow === 0 ? 3 : 2, sleepHours: 7.5, sleepQuality: 4, ill: false, redFlags: { chest: false, bone: false, head: false }, sensitive: {}, secondsToComplete: 38 + wobble * 6 }, ex));
+    const calf = [4, 2, 1, 0].includes(n);
+    await store.saveRecord('checkins', Object.assign({ id: 'CI-EX1' + n, athleteId: kavya.id, date, pain: calf, regions: calf ? ['Calf or shin'] : [], painScore: calf ? { 4: 2, 2: 3, 1: 3, 0: 4 }[n] : '', painAffectsRunning: n === 0, fatigue: n < 5 ? 4 - (n % 2) : 2 + (wobble === 1 ? 1 : 0), soreness: calf ? 3 : 2, sleepHours: 8, sleepQuality: 4, ill: false, redFlags: { chest: false, bone: false, head: false }, sensitive: {}, secondsToComplete: 45 + wobble * 5 }, ex));
+    await store.saveRecord('checkins', Object.assign({ id: 'CI-EX2' + n, athleteId: aarav.id, date, pain: false, regions: [], fatigue: 3, soreness: 2, sleepHours: [5, 3, 1].includes(n) ? 5.5 : 7, sleepQuality: [5, 3, 1].includes(n) ? 2 : 4, ill: false, redFlags: { chest: false, bone: false, head: false }, sensitive: {}, secondsToComplete: 33 + wobble * 7 }, ex));
+    const sess = (i, a, type, min, rpe, extra) => store.saveRecord('sessions', Object.assign({ id: 'TS-EX' + i + n, athleteId: a.id, date, type, plannedMin: min, actualMin: min, plannedKm: '', actualKm: '', surface: '', route: '', footwear: '', warmup: true, prevention: dow === 1, rpe, notes: '' }, extra || {}, ex));
+    if ([1, 3, 5].includes(dow) && n >= 2) await sess(0, rohan, 'Team or skills practice', 90, 5 + (wobble === 2 ? 1 : 0), { surface: 'Grass', footwear: 'Boots or studs' });
+    if (dow === 6 && n >= 2) await sess(0, rohan, 'Match or race', 95, 8, { surface: 'Grass', footwear: 'Boots or studs' });
+    if ([2, 5].includes(dow)) await sess(1, kavya, 'Intervals', 60, n <= 6 ? 8 + (n <= 2 ? 1 : 0) : 6 + (wobble === 1 ? 1 : 0) - (wobble === 2 ? 1 : 0), { surface: 'Track', route: 'College track', footwear: 'Spikes', actualKm: 6 });
+    if ([1, 4].includes(dow)) await sess(1, kavya, 'Easy run', 40, 3, { surface: 'Road', route: 'Campus loop', footwear: 'Trainers', actualKm: 7 });
+    if (dow === 3) await sess(1, kavya, 'Strength and gym', 50, 5, { surface: 'Gym' });
+    if ([1, 2, 4, 5].includes(dow)) await sess(2, aarav, 'Team or skills practice', 100, 6, { surface: 'Indoor court', footwear: 'Court shoes' });
+  }
+  for (let w = 3; w >= 0; w--) {
+    const wk = M.weekStart(daysAgo(w * 7));
+    for (const [i, a] of made.entries()) {
+      if (a === rohan && w === 0) continue;
+      const problems = a === kavya && w === 0 ? [{ q1: 8, q2: 8, q3: 8, q4: 17, kind: 'injury', region: 'Calf or shin', label: 'Sore right calf' }] : [];
+      await store.saveRecord('weeklies', Object.assign({ id: 'WH-EX' + i + w, athleteId: a.id, weekStart: wk, date: wk, problems }, ex));
+    }
+  }
 }
 
 export async function removeExamples() {

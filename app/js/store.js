@@ -2,11 +2,13 @@
 // Everything is kept in memory after load and written through on every change.
 
 const DB_NAME = 'motionplus';
-const DB_VERSION = 1;
-const STORES = ['athletes', 'assessments', 'settings'];
+const DB_VERSION = 2;
+const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews'];
+// Monitoring records, one store each: daily check-ins, training sessions, weekly OSTRC-H2 and signal reviews.
+export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews'];
 
 let db = null;
-const state = { athletes: [], assessments: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
+const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
 const listeners = new Set();
 
 function openDb() {
@@ -45,9 +47,10 @@ export function getState() { return state; }
 export async function init() {
   try {
     db = await openDb();
-    const [athletes, assessments, settings] = await Promise.all(STORES.map(all));
+    const [athletes, assessments, settings, ...monitor] = await Promise.all(STORES.map(all));
     state.athletes = athletes;
     state.assessments = assessments;
+    MONITOR.forEach((k, i) => { state[k] = monitor[i]; });
     if (settings[0]) state.settings = Object.assign(state.settings, settings[0]);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   } catch (e) {
@@ -107,6 +110,11 @@ export async function deleteAthlete(id) {
   state.assessments = state.assessments.filter((x) => x.athleteId !== id);
   await write('athletes', id, true);
   await Promise.all(gone.map((g) => write('assessments', g.id, true)));
+  for (const k of MONITOR) {
+    const g = state[k].filter((x) => x.athleteId === id);
+    state[k] = state[k].filter((x) => x.athleteId !== id);
+    await Promise.all(g.map((x) => write(k, x.id, true)));
+  }
   emit();
 }
 
@@ -160,6 +168,32 @@ export function assessmentsFor(athleteId) {
   return state.assessments.filter((a) => a.athleteId === athleteId).sort((a, b) => (a.date + a.createdAt < b.date + b.createdAt ? 1 : -1));
 }
 
+// ---------- monitoring ----------
+export const newId = (prefix) => prefix + '-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+
+export async function saveRecord(kind, rec) {
+  const r = clone(rec);
+  r.updatedAt = now();
+  if (!r.createdAt) r.createdAt = r.updatedAt;
+  const i = state[kind].findIndex((x) => x.id === r.id);
+  if (i >= 0) state[kind][i] = r; else state[kind].push(r);
+  await write(kind, r);
+  emit();
+  return r;
+}
+
+export async function deleteRecord(kind, id) {
+  state[kind] = state[kind].filter((x) => x.id !== id);
+  await write(kind, id, true);
+  emit();
+}
+
+export const monitorFor = (athleteId) => ({
+  checkins: state.checkins.filter((x) => x.athleteId === athleteId),
+  sessions: state.sessions.filter((x) => x.athleteId === athleteId),
+  weeklies: state.weeklies.filter((x) => x.athleteId === athleteId),
+});
+
 // ---------- settings ----------
 export async function saveSettings(patch) {
   state.settings = Object.assign({}, state.settings, patch, { id: 'app' });
@@ -169,7 +203,7 @@ export async function saveSettings(patch) {
 
 // ---------- backup ----------
 export function exportData() {
-  return { app: 'motionplus', version: 2, exported_at: now(), athletes: state.athletes, assessments: state.assessments, settings: state.settings };
+  return Object.assign({ app: 'motionplus', version: 3, exported_at: now(), athletes: state.athletes, assessments: state.assessments, settings: state.settings }, Object.fromEntries(MONITOR.map((k) => [k, state[k]])));
 }
 
 export async function importData(data) {
@@ -183,6 +217,12 @@ export async function importData(data) {
     if (!s || !s.id || !s.athleteId || getAssessment(s.id)) { skipped++; continue; }
     state.assessments.push(s); await write('assessments', s); added++;
   }
+  for (const k of MONITOR) {
+    for (const r of Array.isArray(data[k]) ? data[k] : []) {
+      if (!r || !r.id || state[k].some((x) => x.id === r.id)) { skipped++; continue; }
+      state[k].push(r); await write(k, r); added++;
+    }
+  }
   emit();
   return { added, skipped };
 }
@@ -190,6 +230,7 @@ export async function importData(data) {
 export async function clearAll() {
   for (const a of state.athletes) await write('athletes', a.id, true);
   for (const a of state.assessments) await write('assessments', a.id, true);
+  for (const k of MONITOR) { for (const r of state[k]) await write(k, r.id, true); state[k] = []; }
   state.athletes = [];
   state.assessments = [];
   emit();
