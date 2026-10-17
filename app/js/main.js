@@ -10,13 +10,17 @@ import { Report, Reports } from './pages/report.js';
 import { Analytics } from './pages/analytics.js';
 import { Protocols } from './pages/protocols.js';
 import { Settings } from './pages/settings.js';
+import { Signals, SquadCheckin, CheckinForm, WeeklyForm, TrainingLog, SessionForm } from './pages/monitor.js';
 
 const NAV = [
   { path: '/', label: 'Dashboard', icon: 'home', group: 'Workspace' },
-  { path: '/athletes', label: 'Athletes', icon: 'users', group: 'Workspace' },
-  { path: '/assess', label: 'New assessment', icon: 'clipboard', group: 'Workspace' },
-  { path: '/reports', label: 'Reports', icon: 'file', group: 'Workspace' },
-  { path: '/analytics', label: 'Trends', icon: 'chart', group: 'Workspace' },
+  { path: '/signals', label: 'Signals', icon: 'pulse', group: 'Monitor' },
+  { path: '/checkin', label: 'Squad check-in', short: 'Check-in', icon: 'check', group: 'Monitor' },
+  { path: '/training', label: 'Training log', short: 'Training', icon: 'bolt', group: 'Monitor' },
+  { path: '/athletes', label: 'Athletes', icon: 'users', group: 'Assess' },
+  { path: '/assess', label: 'New assessment', icon: 'clipboard', group: 'Assess' },
+  { path: '/reports', label: 'Reports', icon: 'file', group: 'Assess' },
+  { path: '/analytics', label: 'Trends', icon: 'chart', group: 'Assess' },
   { path: '/protocols', label: 'Protocol library', icon: 'book', group: 'Manage' },
   { path: '/settings', label: 'Settings', icon: 'gear', group: 'Manage' },
 ];
@@ -38,6 +42,13 @@ function route(r) {
   if (a === 'assess') return html`<${AssessmentWizard} id=${b} step=${Number(r.query.get('step') || 0)} />`;
   if (a === 'reports' && !b) return html`<${Reports} query=${r.query} />`;
   if (a === 'reports') return html`<${Report} id=${b} />`;
+  if (a === 'signals') return html`<${Signals} query=${r.query} />`;
+  if (a === 'checkin' && !b) return html`<${SquadCheckin} />`;
+  if (a === 'checkin' && c === 'weekly') return html`<${WeeklyForm} id=${b} />`;
+  if (a === 'checkin') return html`<${CheckinForm} id=${b} />`;
+  if (a === 'training' && !b) return html`<${TrainingLog} query=${r.query} />`;
+  if (a === 'training' && b === 'new') return html`<${SessionForm} />`;
+  if (a === 'training') return html`<${SessionForm} id=${b} />`;
   if (a === 'analytics') return html`<${Analytics} query=${r.query} />`;
   if (a === 'protocols') return html`<${Protocols} />`;
   if (a === 'settings') return html`<${Settings} />`;
@@ -78,7 +89,7 @@ function App() {
       <main class="inner" id="content">${route(r)}</main>
     </div>
     <nav class="tabbar" aria-label="Main navigation">
-      ${NAV.slice(0, 4).map((n) => html`<a href=${'#' + n.path} class=${isActive(r, n.path) ? 'active' : ''}><${Icon} name=${n.icon} size=${20} />${n.label === 'New assessment' ? 'Assess' : n.label}</a>`)}
+      ${NAV.slice(0, 4).map((n) => html`<a href=${'#' + n.path} class=${isActive(r, n.path) ? 'active' : ''}><${Icon} name=${n.icon} size=${20} />${n.short || n.label}</a>`)}
       <button type="button" class=${more ? 'active' : ''} onClick=${() => setMore(true)} aria-haspopup="true"><${Icon} name="more" size=${20} />More</button>
     </nav>
     ${more ? html`<div class="sheet-backdrop" onClick=${(e) => e.target === e.currentTarget && setMore(false)}><div class="sheet" role="dialog" aria-label="More pages">${NAV.slice(4).map((n) => html`<a href=${'#' + n.path}><${Icon} name=${n.icon} />${n.label}</a>`)}<button class="btn ghost" onClick=${() => setMore(false)}>Close</button></div></div>` : null}

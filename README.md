@@ -24,12 +24,27 @@ After that it works with no signal. Results stay on the phone; use **Download ba
 - `app/` — the web app (Preact + htm, no build step). `app/js/pages/` holds one file per screen,
   `calc.js` turns an assessment into a result record, `insights.js` drafts rule-based observations
   (never new numbers), `store.js` keeps records in IndexedDB on the device, `sw.js` makes it work offline.
+- `engine/monitor.js` — problem-detection rules (`monitor_rules_v1`): daily check-in, weekly OSTRC-H2,
+  session RPE load. Compares each athlete with their own baseline; never predicts injury or clears anyone.
 - `prototype/` — the earlier single-file VO2 tool, still built for reference.
 - `.github/workflows/ci.yml` — runs tests on every PR and publishes `dist/` to GitHub Pages from main.
 
 ## Priority: maximum accuracy (jose, 2026-10-13)
 Tests are ranked in accuracy tiers: A direct gas analysis (lab or portable analyser, entered as Measured),
 B max-effort field tests, C submaximal HR tests, D no-exercise. Use the highest tier the athlete can safely do.
+
+## Monitor: problem detection for any sport
+Built from "The Signal in the Noise" (2026-10-14). On a shared tablet, athletes do a 30–60 s daily check-in
+(pain and where, fatigue, soreness, sleep, illness, 3 urgent-symptom questions), a weekly OSTRC-H2 health
+questionnaire, and coaches log sessions (planned vs actual, session RPE × minutes).
+**Signals** lists who needs attention: Urgent (red-flag symptom, shows emergency advice), Review (repeated or
+high pain, substantial OSTRC problem, confidential items), Watch (RPE above usual, short sleep, load jump),
+No data (missing check-ins are never shown as fine). Every signal needs a recorded review.
+- Needs monitoring consent, plus the athlete's own assent under 18.
+- A clinician PIN hides health detail from coaches on the shared device (a privacy screen, not encryption).
+- Settings → Pilot export gives an anonymised CSV (P01, P02…) for the pilot analysis.
+- OSTRC-H2 wording is copyright (BMJ/OSTRC): get permission before any commercial use.
+- Thresholds are a starting point for clinician sign-off, not validated cut-offs.
 
 ## Methods
 | Test | Cost | Error | Equation source |

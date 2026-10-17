@@ -3,6 +3,7 @@ import { Icon, Field, Notice, toast, downloadFile } from '../ui.js';
 import * as store from '../store.js';
 import { loadExamples, removeExamples } from '../examples.js';
 import { canInstall, onInstallChange, promptInstall, isIos, isStandalone } from '../pwa.js';
+import { pinSet, setPin, isClinician, pilotCsv } from '../monitor.js';
 
 export function Settings() {
   const s = store.getState();
@@ -10,6 +11,8 @@ export function Settings() {
   const [clinic, setClinic] = useState(s.settings.clinicName || '');
   const [confirm, setConfirm] = useState(false);
   const [msg, setMsg] = useState('');
+  const [pin, setPinText] = useState('');
+  const [pinMsg, setPinMsg] = useState('');
   const [, force] = useState(0);
   useEffect(() => onInstallChange(() => force((n) => n + 1)), []);
   const hasExamples = s.athletes.some((a) => a.example);
@@ -43,19 +46,31 @@ export function Settings() {
       : html`<p class="muted small">Use your browser’s menu and choose Install app or Add to Home Screen. Once opened online, the app keeps working offline.</p>`}
     </div>
     <div class="card"><h2>Backup and restore</h2>
-      <p class="muted small">Records are stored only in this browser on this device (${s.athletes.length} athletes, ${s.assessments.length} assessments). Download a backup regularly, and use it to move records to another device.</p>
+      <p class="muted small">Records are stored only in this browser on this device (${s.athletes.length} athletes, ${s.assessments.length} assessments, ${s.checkins.length} check-ins, ${s.sessions.length} training sessions). Download a backup regularly, and use it to move records to another device.</p>
       <div class="row"><button class="btn" onClick=${backup}><${Icon} name="download" size=${16} />Download backup</button>
         <label class="btn" for="restoreFile" tabindex="0"><${Icon} name="upload" size=${16} />Restore from backup</label><input id="restoreFile" type="file" accept="application/json,.json" hidden onChange=${restore} /></div>
       ${msg ? html`<p class="small" role="status">${msg}</p>` : null}
     </div>
+    <div class="card"><h2>Clinician PIN</h2>
+      <p class="muted small">On a shared device, a PIN hides pain details and private answers from anyone who is not the clinician. It is a privacy screen, not encryption: the records are still on this device.</p>
+      ${pinSet() && !isClinician() ? html`<p class="small">Unlock the clinician view in Signals to change or remove the PIN.</p>` : html`<div class="row"><div class="inp" style="width:160px"><input type="password" inputmode="numeric" aria-label="New clinician PIN" placeholder=${pinSet() ? 'New PIN' : 'Choose a PIN'} value=${pin} onInput=${(e) => setPinText(e.target.value)} /></div>
+        <button class="btn" disabled=${pin.length < 4} onClick=${async () => { await setPin(pin); setPinText(''); setPinMsg('PIN saved. Coach view is now the default on this device.'); }}>${pinSet() ? 'Change PIN' : 'Set PIN'}</button>
+        ${pinSet() ? html`<button class="btn ghost" onClick=${async () => { await setPin(''); setPinMsg('PIN removed. Everyone using this device sees health details.'); }}>Remove PIN</button>` : null}</div>
+        <p class="hint">At least 4 digits.</p>`}
+      ${pinMsg ? html`<p class="small" role="status">${pinMsg}</p>` : null}
+    </div>
+    <div class="card"><h2>Pilot export</h2>
+      <p class="muted small">Check-ins, sessions, weekly health and reviews as one CSV for analysis. Names and IDs are replaced by P01, P02 and so on. Dates are kept, so treat the file as health data.</p>
+      <div><button class="btn" disabled=${!s.checkins.length && !s.sessions.length && !s.weeklies.length} onClick=${() => downloadFile('motionplus-pilot-' + new Date().toISOString().slice(0, 10) + '.csv', pilotCsv(), 'text/csv')}><${Icon} name="download" size=${16} />Download anonymised CSV</button></div>
+    </div>
     <div class="card"><h2>Example data</h2>
-      <p class="muted small">Three invented athletes with assessment history, for trying the app or showing it to colleagues.</p>
+      <p class="muted small">Three invented athletes with assessment history and four weeks of monitoring, for trying the app or showing it to colleagues.</p>
       <div>${hasExamples ? html`<button class="btn" onClick=${async () => { await removeExamples(); toast('Example data removed.'); }}>Remove example data</button>` : html`<button class="btn" onClick=${async () => { await loadExamples(); toast('Example athletes loaded.'); }}>Load example data</button>`}</div>
     </div>
     <div class="card"><h2>Privacy and limits</h2><ul class="small muted" style="margin:0;padding-left:18px;display:grid;gap:4px">
       <li>No account, server or tracking. Nothing leaves this device unless you download a backup.</li>
       <li>Anyone who can open this browser can see the records. Use a device passcode.</li>
-      <li>Observations are drafted by fixed rules, not an AI model. They never add numbers.</li>
+      <li>Observations and signals come from fixed rules, not an AI model. They never add numbers, predict injury or clear an athlete.</li>
       <li>Cloud accounts, shared clinic records and AI-written report text need a secure server and are planned for later.</li></ul></div>
     <div class="card"><h2>Delete all records</h2><p class="muted small">Removes every athlete and assessment from this device. Download a backup first if you may need them.</p>
       ${confirm ? html`<div class="row"><button class="btn danger" onClick=${async () => { await store.clearAll(); setConfirm(false); toast('All records deleted from this device.'); }}>Delete everything</button><button class="btn ghost" onClick=${() => setConfirm(false)}>Cancel</button></div>` : html`<div><button class="btn danger" onClick=${() => setConfirm(true)}><${Icon} name="trash" size=${16} />Delete all records</button></div>`}</div>

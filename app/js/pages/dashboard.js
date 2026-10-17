@@ -3,6 +3,7 @@ import * as store from '../store.js';
 import { draftInsights } from '../insights.js';
 import { ASSESSMENT_TYPES } from '../calc.js';
 import { loadExamples } from '../examples.js';
+import { squad, today, LEVEL } from '../monitor.js';
 
 const KIND = { danger: ['alert', 't-red'], warn: ['alert', 't-amber'], good: ['trend', 't-green'], info: ['sparkle', 't-violet'] };
 const TYPE_ICON = { full: 'clipboard', cardio: 'heart', strength_power: 'bolt', mobility_balance: 'move', rts: 'trend', baseline: 'pulse' };
@@ -43,9 +44,14 @@ export function Dashboard() {
   const grip = pick('grip'), jump = pick('jump'), sprint = pick('sprint');
   const vo2Series = history.map((h) => ({ a: h, i: vo2Of(h) })).filter((x) => x.i && vo2 && x.i.protocol_id === vo2.protocol_id).map((x) => ({ x: x.a.date, y: x.i.value }));
   const hasExamples = s.athletes.some((a) => a.example);
+  const sq = squad();
+  const openBy = (lv) => sq.reduce((n, x) => n + x.result.signals.filter((g) => g.open && g.level === lv).length, 0);
+  const checkedIn = sq.filter((x) => s.checkins.some((c) => c.athleteId === x.athlete.id && c.date === today())).length;
 
   return html`${head}
   ${hasExamples ? html`<div class="notice" style="margin-bottom:16px"><${Icon} name="info" size=${16} /><div>Example athletes are loaded. Their values are invented. <a href="#/settings">Remove them in Settings</a>.</div></div>` : null}
+  ${sq.length ? html`<div class="card monitor-strip" style="margin-bottom:16px"><div><h2>Today's monitoring</h2><p class="muted small">${checkedIn} of ${sq.length} athletes checked in · rules compare each athlete with their own baseline</p></div>
+    <div class="row">${['urgent', 'review', 'watch', 'no_data'].map((lv) => html`<a class="level-count ${LEVEL[lv].cls}" href=${'#/signals?level=' + lv}><b>${openBy(lv)}</b>${LEVEL[lv].name}</a>`)}<a class="btn primary sm" href="#/checkin">Squad check-in</a></div></div>` : null}
   <div class="grid cols-4 stats">
     <div class="card stat"><span class="ic t-teal"><${Icon} name="users" /></span><div><div class="v">${s.athletes.length}</div><div class="l">Athletes</div></div></div>
     <div class="card stat"><span class="ic t-blue"><${Icon} name="clipboard" /></span><div><div class="v">${thisMonth}</div><div class="l">Assessments this month</div></div></div>
