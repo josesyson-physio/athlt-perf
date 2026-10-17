@@ -51,10 +51,9 @@ function daysAgo(n) {
   return new Date(Date.parse(today()) - n * 864e5).toISOString().slice(0, 10);
 }
 
-// Four weeks of invented monitoring. Kavya develops calf pain and harder intervals (Review and Watch),
-// Rohan stops checking in (No data), Aarav sleeps short on three nights (Watch).
+// Four weeks of invented monitoring. Kavya develops calf pain and harder intervals (Look at today and Keep an eye on),
+// Rohan stops checking in (No answers yet), Aarav sleeps short on three nights (Keep an eye on).
 async function loadMonitoring(made) {
-  const M = globalThis.MotionPlusMonitor;
   const [rohan, kavya, aarav] = made;
   const ex = { example: true };
   for (let n = 27; n >= 0; n--) {
@@ -73,17 +72,10 @@ async function loadMonitoring(made) {
     if (dow === 3) await sess(1, kavya, 'Strength and gym', 50, 5, { surface: 'Gym' });
     if ([1, 2, 4, 5].includes(dow)) await sess(2, aarav, 'Team or skills practice', 100, 6, { surface: 'Indoor court', footwear: 'Court shoes' });
   }
-  for (let w = 3; w >= 0; w--) {
-    const wk = M.weekStart(daysAgo(w * 7));
-    for (const [i, a] of made.entries()) {
-      if (a === rohan && w === 0) continue;
-      const problems = a === kavya && w === 0 ? [{ q1: 8, q2: 8, q3: 8, q4: 17, kind: 'injury', region: 'Calf or shin', label: 'Sore right calf' }] : [];
-      await store.saveRecord('weeklies', Object.assign({ id: 'WH-EX' + i + w, athleteId: a.id, weekStart: wk, date: wk, problems }, ex));
-    }
-  }
 }
 
 export async function removeExamples() {
   const s = store.getState();
   for (const a of s.athletes.filter((x) => x.example)) await store.deleteAthlete(a.id);
+  for (const k of store.SOCIAL) for (const r of s[k].filter((x) => x.example)) await store.deleteRecord(k, r.id);
 }

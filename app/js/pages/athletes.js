@@ -116,7 +116,7 @@ export function AthleteProfile({ id }) {
   const series = seriesFor(h, m);
   const age = store.ageAt(a);
   return html`<div class="head"><div class="athlete-chip"><span class="avatar lg">${initials(a.name)}</span><div><div class="eyebrow">${a.id}${a.example ? ' · Example' : ''}</div><h1>${a.name}</h1><p>${[age != null ? age + ' years' : null, a.heightCm ? a.heightCm + ' cm' : null, a.massKg ? a.massKg + ' kg' : null, a.sport, a.position].filter(Boolean).join(' · ')}</p></div></div>
-    <div class="row"><a class="btn" href=${'#/athletes/' + a.id + '/edit'}><${Icon} name="edit" size=${16} />Edit</a><a class="btn" href=${'#/focus/' + a.id}><${Icon} name="trend" size=${16} />Focus plan</a><a class="btn primary" href=${'#/assess?athlete=' + a.id}><${Icon} name="plus" size=${16} />New assessment</a></div></div>
+    <div class="row"><a class="btn" href=${'#/athletes/' + a.id + '/edit'}><${Icon} name="edit" size=${16} />Edit</a><a class="btn primary" href=${'#/assess?athlete=' + a.id}><${Icon} name="plus" size=${16} />New assessment</a></div></div>
   ${!a.consentOnFile ? html`<div class="notice warn" style="margin-bottom:16px"><${Icon} name="alert" size=${16} /><div>No signed consent is recorded on this profile. Record consent in each assessment before testing.</div></div>` : null}
   <div class="grid cols-3">
     <div class="card span-2">

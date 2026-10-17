@@ -217,7 +217,7 @@ export function Signals({ query }) {
   const shown = open.filter((x) => !level || x.s.level === level).sort((a, b) => M.LEVELS.indexOf(a.s.level) - M.LEVELS.indexOf(b.s.level));
   const issues = list.flatMap(({ athlete, result }) => result.issues.map((i) => Object.assign({ athlete }, i)));
   const STATUS_ORDER = ['urgent', 'review', 'watch', 'no_data', 'none'];
-  return html`<div class="head"><div><div class="eyebrow">Monitor</div><h1>Signals</h1><p>Who needs attention today, from check-ins and the training log.</p></div><a class="btn primary" href="#/checkin"><${Icon} name="users" size=${16} />Squad check-in</a></div>
+  return html`<div class="head"><div><div class="eyebrow">Monitor</div><h1>Signals</h1><p>Who needs attention today, from check-ins and the training log.</p></div></div>
   ${!list.length ? html`<div class="card" style="margin-top:16px"><${Empty} icon="pulse" title="No athletes yet" text="Add athletes, then hand them the device for a daily check-in."><a class="btn primary" href="#/athletes/new">Add athlete</a></${Empty}></div>` : html`
   <div class="grid cols-4 stats compact" style="margin-top:16px">${['urgent', 'review', 'watch', 'no_data'].map((lv) => html`<button class="card stat ${level === lv ? 'sel' : ''}" onClick=${() => setLevel(level === lv ? '' : lv)} aria-pressed=${String(level === lv)}><span class="ic ${LEVEL[lv].cls}"><${Icon} name=${LEVEL[lv].icon} /></span><div><div class="v">${count(lv)}</div><div class="l">${LEVEL[lv].name}</div></div></button>`)}</div>
   <div class="grid cols-3" style="margin-top:16px">
@@ -245,7 +245,7 @@ export function MonitorCard({ athlete }) {
   const open = r.signals.filter((s) => s.open);
   return html`<div class="card" style="margin-top:16px">
     <div class="card-head"><div><h2>Check-ins, last 4 weeks</h2><p>Status <${LevelPill} level=${r.status} /> · last check-in ${r.lastCheckin ? fmtDate(r.lastCheckin) : 'none'} · session load this week ${r.load7 || 0}</p></div>
-      <div class="row"><a class="btn sm" href=${'#/focus/' + athlete.id}>Focus plan</a><a class="btn sm" href=${'#/training?athlete=' + athlete.id}>Training</a><a class="btn sm primary" href=${'#/checkin/' + athlete.id}>Check in</a></div></div>
+      <div class="row"><a class="btn sm" href=${'#/training?athlete=' + athlete.id}>Training</a><a class="btn sm primary" href=${'#/checkin/' + athlete.id}>Check in</a></div></div>
     <div class="grid cols-2">
       <div><p class="muted small">Daily session load (RPE × min)</p><${LineChart} series=${[{ name: 'Load', points: Object.entries(byDay).sort().map(([x, y]) => ({ x, y })) }]} height=${160} /></div>
       <div><p class="muted small">Pain (0 to 10) and tiredness (1 to 5)</p><${LineChart} series=${([{ name: 'Pain', points: ci.map((c) => ({ x: c.date, y: c.pain ? Number(c.painScore) || 0 : 0 })) }]).concat([{ name: 'Tiredness', points: ci.filter((c) => has(c.fatigue)).map((c) => ({ x: c.date, y: Number(c.fatigue) })) }])} height=${160} /></div>
