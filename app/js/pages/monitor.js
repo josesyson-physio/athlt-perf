@@ -1,7 +1,7 @@
 import { html, useState } from '../vendor/preact-htm.js';
 import { Icon, Field, Check, Seg, Empty, Notice, LineChart, fmtDate, initials, go, toast, has } from '../ui.js';
 import * as store from '../store.js';
-import { M, LEVEL, today, canMonitor, evaluateAthlete, squad, saveReview, isClinician, pinSet, unlock, lock } from '../monitor.js';
+import { M, LEVEL, today, evaluateAthlete, squad, saveReview } from '../monitor.js';
 
 export const LevelPill = ({ level }) => {
   const l = LEVEL[level] || LEVEL.none;
@@ -29,27 +29,23 @@ function Q({ label, children, hint }) {
 export function SquadCheckin() {
   const s = store.getState();
   const d = today();
-  const wk = M.weekStart(d);
-  const ready = s.athletes.filter(canMonitor).sort((a, b) => a.name.localeCompare(b.name));
-  const waiting = s.athletes.filter((a) => !canMonitor(a));
+  const ready = s.athletes.slice().sort((a, b) => a.name.localeCompare(b.name));
   const doneToday = (a) => s.checkins.some((c) => c.athleteId === a.id && c.date === d);
-  const weeklyDone = (a) => s.weeklies.some((w) => w.athleteId === a.id && w.weekStart === wk);
   const done = ready.filter(doneToday).length;
   return html`<div class="head"><div><div class="eyebrow">${new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</div><h1>Squad check-in</h1><p>Hand this device to each athlete. Their check-in takes under a minute.</p></div>
     <div class="row"><span class="pill ${done === ready.length && ready.length ? 'approved' : 'calculated'}">${done} of ${ready.length} checked in today</span></div></div>
-  ${!ready.length ? html`<div class="card"><${Empty} icon="users" title="No athletes ready for monitoring" text="Record monitoring consent on an athlete's profile first. Under 18, record the athlete's own agreement too.">
-      <a class="btn primary" href="#/athletes">Open athletes</a></${Empty}></div>`
+  ${!ready.length ? html`<div class="card"><${Empty} icon="users" title="No athletes yet" text="Add your athletes first.">
+      <a class="btn primary" href="#/athletes/new">Add athlete</a></${Empty}></div>`
   : html`<div class="checkin-grid">${ready.map((a) => {
       const ok = doneToday(a);
       return html`<a class="checkin-tile ${ok ? 'done' : ''}" href=${'#/checkin/' + a.id}>
         <span class="avatar lg">${initials(a.name)}</span>
         <b>${a.name}</b>
         <span class="small muted">${a.sport || ''}${a.position ? ' · ' + a.position : ''}</span>
-        <span class="row" style="gap:6px;justify-content:center">${ok ? html`<span class="pill approved"><${Icon} name="check" size=${12} />Done today</span>` : html`<span class="pill draft">Not yet</span>`}${!weeklyDone(a) ? html`<span class="pill calc">Weekly due</span>` : null}</span>
+        <span class="row" style="gap:6px;justify-content:center">${ok ? html`<span class="pill approved"><${Icon} name="check" size=${12} />Done today</span>` : html`<span class="pill draft">Not yet</span>`}</span>
       </a>`;
     })}</div>`}
-  ${waiting.length ? html`<div class="card" style="margin-top:16px"><h2>Not set up for monitoring</h2><p class="muted small">These athletes have no monitoring consent recorded${waiting.some((a) => a.monitorConsent) ? ', or are under 18 with no assent recorded' : ''}. They cannot check in until it is.</p>
-    <div class="row">${waiting.map((a) => html`<a class="btn sm" href=${'#/athletes/' + a.id + '/edit'}>${a.name}</a>`)}</div></div>` : null}`;
+`;
 }
 
 export function CheckinForm({ id }) {
@@ -61,7 +57,6 @@ export function CheckinForm({ id }) {
   const [tried, setTried] = useState(false);
   const [urgent, setUrgent] = useState(null);
   if (!a) return html`<div class="card"><${Empty} icon="users" title="Athlete not found" /></div>`;
-  if (!canMonitor(a)) return html`<div class="card"><${Empty} icon="alert" title="Monitoring consent not recorded" text="Record consent (and assent under 18) on the athlete's profile before they check in."><a class="btn primary" href=${'#/athletes/' + a.id + '/edit'}>Edit profile</a></${Empty}></div>`;
   const set = (k, v) => setF(Object.assign({}, f, { [k]: v }));
   const setRed = (k, v) => set('redFlags', Object.assign({}, f.redFlags, { [k]: v }));
   const setSens = (k, v) => set('sensitive', Object.assign({}, f.sensitive, { [k]: v }));
@@ -79,7 +74,7 @@ export function CheckinForm({ id }) {
 
   if (urgent) {
     return html`<div class="urgent-screen" role="alert"><${Icon} name="alert" size=${40} /><h1>Stop. Do not train today.</h1>
-      <p>${a.name}, tell your coach now. Your clinician needs to see you today before you train again.</p>
+      <p>${a.name}, tell your coach now. See a doctor today before you train again.</p>
       <p class="small">If you have chest pain, fainting or trouble breathing right now, call emergency services on 112.</p>
       <div class="row" style="justify-content:center"><button class="btn primary" onClick=${() => go('/checkin')}>I have told my coach</button></div></div>`;
   }
@@ -91,9 +86,7 @@ export function CheckinForm({ id }) {
     if (!rec.pain) { rec.regions = []; rec.painScore = ''; rec.painAffectsRunning = false; }
     await store.saveRecord('checkins', rec);
     if (RED.some(([k]) => rec.redFlags[k])) { setUrgent(true); return; }
-    const weeklyDone = store.getState().weeklies.some((w) => w.athleteId === a.id && w.weekStart === M.weekStart(d));
-    if (!weeklyDone) { toast('Saved. One more short form this week.'); go('/checkin/' + a.id + '/weekly'); }
-    else { toast('Thanks, ' + a.name.split(' ')[0] + '. Check-in saved.'); go('/checkin'); }
+    toast('Thanks, ' + a.name.split(' ')[0] + '. Check-in saved.'); go('/checkin');
   };
 
   return html`<div class="head"><div class="athlete-chip"><span class="avatar lg">${initials(a.name)}</span><div><div class="eyebrow">Daily check-in · ${fmtDate(d)}</div><h1>${a.name}</h1><p>${existing ? 'You already checked in today. Changes replace today’s answers.' : 'About today. There are no right answers.'}</p></div></div></div>
@@ -116,57 +109,12 @@ export function CheckinForm({ id }) {
       <h2><${Icon} name="alert" size=${16} /> Safety questions</h2>
       ${RED.map(([k, label]) => html`<${Q} label=${label}><${Seg} label=${label} value=${f.redFlags[k]} options=${yesNo} onChange=${(v) => setRed(k, v)} /></${Q}>`)}
     </div>
-    <details class="card"><summary><b>Private questions</b> <span class="muted small">· optional, only your clinician sees these</span></summary>
+    <details class="card"><summary><b>Private questions</b> <span class="muted small">· optional</span></summary>
       <${Q} label="How is your mood?"><${Seg} label="Mood" value=${f.sensitive.mood} options=${MOOD} onChange=${(v) => setSens('mood', v)} /></${Q}>
       ${a.sex === 'female' ? html`<${Q} label="Any change to your period this month, such as a missed or very different period?"><${Seg} label="Period change" value=${f.sensitive.periodChange} options=${[{ value: false, label: 'No' }, { value: true, label: 'Yes' }, { value: 'skip', label: 'Prefer not to say' }]} onChange=${(v) => setSens('periodChange', v)} /></${Q}>` : null}
     </details>
     ${tried && missing.length ? html`<${Notice} kind="warn">Please answer: ${missing.join(', ')}.</${Notice}>` : null}
     <div class="row"><button class="btn primary lg" onClick=${save}><${Icon} name="check" size=${18} />Save check-in</button><a class="btn ghost" href="#/checkin">Cancel</a></div>
-  </div>`;
-}
-
-// ---------- weekly OSTRC-H2 ----------
-const blankProblem = () => ({ q1: null, q2: null, q3: null, q4: null, kind: '', region: '', label: '' });
-
-export function WeeklyForm({ id }) {
-  const a = store.getAthlete(id);
-  const d = today();
-  const wk = M.weekStart(d);
-  const existing = store.getState().weeklies.find((w) => w.athleteId === id && w.weekStart === wk);
-  const [p, setP] = useState(blankProblem());
-  const [tried, setTried] = useState(false);
-  if (!a || !canMonitor(a)) return html`<div class="card"><${Empty} icon="alert" title="Not available" text="This athlete is not set up for monitoring." /></div>`;
-  const set = (k, v) => setP(Object.assign({}, p, { [k]: v }));
-  const first = !existing || !(existing.problems || []).length;
-  const noProblem = p.q1 === 0;
-  const needsMore = p.q1 !== null && p.q1 !== 0 && p.q1 !== 25;
-  const missing = [];
-  if (p.q1 === null) missing.push('question 1');
-  if (needsMore && ['q2', 'q3', 'q4'].some((k) => p[k] === null)) missing.push('questions 2 to 4');
-  if (!noProblem && p.q1 !== null && !p.kind) missing.push('injury or illness');
-  const save = async (another) => {
-    setTried(true);
-    if (missing.length) return;
-    const rec = existing ? JSON.parse(JSON.stringify(existing)) : { id: store.newId('WH'), athleteId: a.id, weekStart: wk, problems: [] };
-    rec.date = d;
-    if (noProblem) { if (first) rec.problems = []; }
-    else rec.problems.push(p.q1 === 25 ? { q1: 25, q2: null, q3: null, q4: null, kind: p.kind, region: p.region, label: p.label } : Object.assign({}, p));
-    await store.saveRecord('weeklies', rec);
-    if (another) { setP(blankProblem()); setTried(false); toast('Saved. Now the next health problem.'); window.scrollTo(0, 0); }
-    else { toast('Weekly health saved.'); go('/checkin'); }
-  };
-  const opt = (q) => q.options.map(([label, score]) => ({ value: score, label }));
-  return html`<div class="head"><div class="athlete-chip"><span class="avatar lg">${initials(a.name)}</span><div><div class="eyebrow">Weekly health · week of ${fmtDate(wk)}</div><h1>${a.name}</h1><p>${first ? 'Four questions about the past 7 days (OSTRC-H2).' : 'Another health problem this week. Answer for this problem only.'}</p></div></div></div>
-  <div class="checkin">
-    <div class="card">
-      <${Q} label=${'1. ' + M.OSTRC[0].text}><div class="seg col">${opt(M.OSTRC[0]).filter((o) => first || o.value !== 0).map((o) => html`<button type="button" aria-pressed=${String(p.q1 === o.value)} onClick=${() => set('q1', o.value)}>${o.label}</button>`)}</div></${Q}>
-      ${needsMore ? M.OSTRC.slice(1).map((q, i) => html`<${Q} label=${i + 2 + '. ' + q.text}><div class="seg col">${opt(q).map((o) => html`<button type="button" aria-pressed=${String(p[q.key] === o.value)} onClick=${() => set(q.key, o.value)}>${o.label}</button>`)}</div></${Q}>`) : null}
-      ${p.q1 !== null && !noProblem ? html`<${Q} label="Is it an injury or an illness?"><${Seg} label="Problem type" value=${p.kind} options=${[{ value: 'injury', label: 'Injury' }, { value: 'illness', label: 'Illness' }, { value: 'other', label: 'Other' }]} onChange=${(v) => set('kind', v)} /></${Q}>
-        <div class="fields">${p.kind === 'injury' ? html`<${Field} label="Body region" value=${p.region} onInput=${(v) => set('region', v)} options=${[''].concat(M.REGIONS)} />` : null}<${Field} label="Short name for it (optional)" value=${p.label} onInput=${(v) => set('label', v)} placeholder="For example: sore right calf" /></div>` : null}
-    </div>
-    <p class="small muted">Questions from the OSTRC Questionnaire on Health Problems (Clarsen et al., Br J Sports Med 2020), wording and scoring unchanged.</p>
-    ${tried && missing.length ? html`<${Notice} kind="warn">Please answer: ${missing.join(', ')}.</${Notice}>` : null}
-    <div class="row"><button class="btn primary lg" onClick=${() => save(false)}>Save</button>${p.q1 !== null && !noProblem ? html`<button class="btn" onClick=${() => save(true)}>Save and add another problem</button>` : null}<a class="btn ghost" href="#/checkin">Skip for now</a></div>
   </div>`;
 }
 
@@ -244,38 +192,24 @@ export function SessionForm({ id }) {
 }
 
 // ---------- signals ----------
-function ClinicianBar({ onChange }) {
-  const [pin, setPin] = useState('');
-  const [bad, setBad] = useState(false);
-  if (!pinSet()) return html`<${Notice} kind="info">Everyone using this device sees health details. Set a clinician PIN in <a href="#/settings">Settings</a> to hide pain and private answers from coaches.</${Notice}>`;
-  if (isClinician()) return html`<div class="notice good"><${Icon} name="check" size=${16} /><div style="flex:1">Clinician view: health details are visible.</div><button class="btn sm" onClick=${() => { lock(); onChange(); }}>Lock</button></div>`;
-  return html`<form class="notice" onSubmit=${async (e) => { e.preventDefault(); const ok = await unlock(pin); setBad(!ok); setPin(''); if (ok) onChange(); }}><${Icon} name="info" size=${16} /><div style="flex:1">Coach view: pain details and private answers are hidden. Urgent and Review items need the clinician view to be reviewed.</div>
-    <div class="inp" style="width:130px"><input type="password" inputmode="numeric" aria-label="Clinician PIN" placeholder="Clinician PIN" value=${pin} onInput=${(e) => setPin(e.target.value)} /></div><button class="btn sm" type="submit">Unlock</button>${bad ? html`<span class="err small">Wrong PIN</span>` : null}</form>`;
-}
-
-function SignalCard({ athlete, s, clin }) {
+function SignalCard({ athlete, s }) {
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
-  const [plan, setPlan] = useState('');
-  const hide = !clin && (s.sensitive || s.level === 'urgent' || s.level === 'review');
-  const needsClin = s.level === 'urgent' || s.level === 'review';
   const l = LEVEL[s.level];
   return html`<div class="signal ${s.level}">
     <div class="signal-head"><span class="ic ${l.cls}"><${Icon} name=${l.icon} size=${16} /></span>
-      <div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b>${hide && s.sensitive ? 'Confidential health item' : hide && s.level === 'urgent' ? 'Urgent: stop training until the clinician sees them' : hide ? 'Health review needed' : s.title}</b><${LevelPill} level=${s.level} /></div>
-        <div class="small muted"><a href=${'#/athletes/' + athlete.id}>${athlete.name}</a> · ${fmtDate(s.latest)}${s.review ? ' · reviewed before, new data since' : ''}</div></div></div>
-    <p>${hide ? 'Details are visible in the clinician view.' : s.text.replace(/\d{4}-\d{2}-\d{2}/g, (x) => fmtDate(x))}</p>
-    ${!hide && s.evidence.length > 1 ? html`<div class="small muted">Dates: ${s.evidence.map(fmtDate).join(', ')}</div>` : null}
-    ${s.level === 'no_data' ? null : open ? html`<div class="fields" style="margin-top:10px"><${Field} label=${'What did you find?' + (needsClin ? ' *' : '')} type="textarea" rows=${2} value=${note} onInput=${setNote} /><${Field} label="Plan (optional)" type="textarea" rows=${2} value=${plan} onInput=${setPlan} placeholder="For example: modify Thursday intervals, recheck Monday" /></div>
-      <div class="row"><button class="btn primary sm" disabled=${needsClin && !note.trim()} onClick=${async () => { await saveReview(athlete.id, s, note.trim(), plan.trim()); toast('Review saved.'); }}>Save review</button><button class="btn ghost sm" onClick=${() => setOpen(false)}>Cancel</button></div>`
-    : needsClin && !clin ? null : html`<div class="row" style="margin-top:8px"><button class="btn sm" onClick=${() => setOpen(true)}>Review</button></div>`}
+      <div style="flex:1;min-width:0"><div class="row" style="gap:8px"><b>${s.title}</b><${LevelPill} level=${s.level} /></div>
+        <div class="small muted"><a href=${'#/athletes/' + athlete.id}>${athlete.name}</a> · ${fmtDate(s.latest)}${s.review ? ' · done before, new answers since' : ''}</div></div></div>
+    <p>${s.text.replace(/\d{4}-\d{2}-\d{2}/g, (x) => fmtDate(x))}</p>
+    ${s.evidence.length > 1 ? html`<div class="small muted">Dates: ${s.evidence.map(fmtDate).join(', ')}</div>` : null}
+    ${s.level === 'no_data' ? null : open ? html`<div class="fields" style="margin-top:10px"><${Field} label="Note (optional)" type="textarea" rows=${2} value=${note} onInput=${setNote} placeholder="For example: easier session on Thursday" /></div>
+      <div class="row"><button class="btn primary sm" onClick=${async () => { await saveReview(athlete.id, s, note.trim(), ''); toast('Marked as done.'); }}>Mark as done</button><button class="btn ghost sm" onClick=${() => setOpen(false)}>Cancel</button></div>`
+    : html`<div class="row" style="margin-top:8px"><button class="btn sm" onClick=${() => setOpen(true)}>Done</button></div>`}
   </div>`;
 }
 
 export function Signals({ query }) {
-  const [, force] = useState(0);
   const [level, setLevel] = useState(query.get('level') || '');
-  const clin = isClinician();
   const list = squad();
   const open = list.flatMap(({ athlete, result }) => result.signals.filter((s) => s.open).map((s) => ({ athlete, s })));
   const reviewed = list.flatMap(({ athlete, result }) => result.signals.filter((s) => !s.open).map((s) => ({ athlete, s })));
@@ -283,29 +217,26 @@ export function Signals({ query }) {
   const shown = open.filter((x) => !level || x.s.level === level).sort((a, b) => M.LEVELS.indexOf(a.s.level) - M.LEVELS.indexOf(b.s.level));
   const issues = list.flatMap(({ athlete, result }) => result.issues.map((i) => Object.assign({ athlete }, i)));
   const STATUS_ORDER = ['urgent', 'review', 'watch', 'no_data', 'none'];
-  return html`<div class="head"><div><div class="eyebrow">Monitor</div><h1>Signals</h1><p>Patterns worth a look, from check-ins, weekly health and training. A person decides what each one means.</p></div><a class="btn primary" href="#/checkin"><${Icon} name="users" size=${16} />Squad check-in</a></div>
-  <${ClinicianBar} onChange=${() => force((n) => n + 1)} />
-  ${!list.length ? html`<div class="card" style="margin-top:16px"><${Empty} icon="pulse" title="No athletes are being monitored" text="Record monitoring consent on athlete profiles to start daily check-ins."><a class="btn primary" href="#/athletes">Open athletes</a></${Empty}></div>` : html`
+  return html`<div class="head"><div><div class="eyebrow">Monitor</div><h1>Signals</h1><p>Who needs attention today, from check-ins and the training log.</p></div></div>
+  ${!list.length ? html`<div class="card" style="margin-top:16px"><${Empty} icon="pulse" title="No athletes yet" text="Add athletes, then hand them the device for a daily check-in."><a class="btn primary" href="#/athletes/new">Add athlete</a></${Empty}></div>` : html`
   <div class="grid cols-4 stats compact" style="margin-top:16px">${['urgent', 'review', 'watch', 'no_data'].map((lv) => html`<button class="card stat ${level === lv ? 'sel' : ''}" onClick=${() => setLevel(level === lv ? '' : lv)} aria-pressed=${String(level === lv)}><span class="ic ${LEVEL[lv].cls}"><${Icon} name=${LEVEL[lv].icon} /></span><div><div class="v">${count(lv)}</div><div class="l">${LEVEL[lv].name}</div></div></button>`)}</div>
   <div class="grid cols-3" style="margin-top:16px">
-    <div class="card span-2"><div class="card-head"><div><h2>${level ? LEVEL[level].name : 'Open'} signals</h2><p>Highest priority first. Thresholds are clinic starting points, not validated cut-offs.</p></div>${level ? html`<button class="btn sm ghost" onClick=${() => setLevel('')}>Show all</button>` : null}</div>
-      ${shown.length ? shown.map(({ athlete, s }) => html`<${SignalCard} key=${s.key + s.latest} athlete=${athlete} s=${s} clin=${clin} />`) : html`<p class="muted small">Nothing open${level ? ' at this level' : ''}.</p>`}
-      ${reviewed.length ? html`<details style="margin-top:12px"><summary>Reviewed (${reviewed.length})</summary>${reviewed.map(({ athlete, s }) => html`<div class="small" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${athlete.name}</b> · ${clin || !(s.sensitive || s.level === 'review' || s.level === 'urgent') ? s.title : 'Health item'} · reviewed by ${s.review.by} on ${fmtDate(s.review.at)}${clin && s.review.note ? html`<div class="muted">${s.review.note}${s.review.plan ? ' · Plan: ' + s.review.plan : ''}</div>` : null}</div>`)}</details>` : null}
+    <div class="card span-2"><div class="card-head"><div><h2>${level ? LEVEL[level].name : 'To do'}</h2><p>Most important first.</p></div>${level ? html`<button class="btn sm ghost" onClick=${() => setLevel('')}>Show all</button>` : null}</div>
+      ${shown.length ? shown.map(({ athlete, s }) => html`<${SignalCard} key=${s.key + s.latest} athlete=${athlete} s=${s} />`) : html`<p class="muted small">Nothing to do${level ? ' at this level' : ''}.</p>`}
+      ${reviewed.length ? html`<details style="margin-top:12px"><summary>Done (${reviewed.length})</summary>${reviewed.map(({ athlete, s }) => html`<div class="small" style="padding:8px 0;border-bottom:1px solid var(--line)"><b>${athlete.name}</b> · ${s.title} · done by ${s.review.by} on ${fmtDate(s.review.at)}${s.review.note ? html`<div class="muted">${s.review.note}</div>` : null}</div>`)}</details>` : null}
     </div>
     <div class="card"><h2>Squad status</h2>
-      <div class="table-wrap"><table><thead><tr><th>Athlete</th><th>Status</th><th>Last check-in</th><th>Load 7 d</th></tr></thead><tbody>
+      <div class="table-wrap"><table><thead><tr><th>Athlete</th><th>Status</th><th>Last check-in</th><th>Load this week</th></tr></thead><tbody>
         ${list.slice().sort((a, b) => STATUS_ORDER.indexOf(a.result.status) - STATUS_ORDER.indexOf(b.result.status)).map(({ athlete, result }) => html`<tr class="link" onClick=${() => go('/athletes/' + athlete.id)}><td>${athlete.name}</td><td><${LevelPill} level=${result.status} /></td><td class="num">${result.lastCheckin ? fmtDate(result.lastCheckin) : '—'}</td><td class="num">${result.load7 || '—'}</td></tr>`)}
       </tbody></table></div>
-      ${issues.length ? html`<h3 style="margin-top:16px">Data checks</h3><ul class="small" style="padding-left:18px;margin:0">${issues.map((i) => html`<li>${i.athlete.name}, ${i.kind.toLowerCase()} ${fmtDate(i.date)}: ${i.text}</li>`)}</ul>` : null}
+      ${issues.length ? html`<h3 style="margin-top:16px">Answers to check</h3><ul class="small" style="padding-left:18px;margin:0">${issues.map((i) => html`<li>${i.athlete.name}, ${i.kind.toLowerCase()} ${fmtDate(i.date)}: ${i.text}</li>`)}</ul>` : null}
     </div>
   </div>`}`;
 }
 
 // ---------- athlete profile card ----------
 export function MonitorCard({ athlete }) {
-  if (!canMonitor(athlete)) return html`<div class="card" style="margin-top:16px"><h2>Monitoring</h2><p class="muted small">Not set up. Record monitoring consent${store.ageAt(athlete) != null && store.ageAt(athlete) < 18 ? ' and the athlete’s assent' : ''} in the profile to start daily check-ins.</p><a class="btn sm" href=${'#/athletes/' + athlete.id + '/edit'}>Edit profile</a></div>`;
   const r = evaluateAthlete(athlete);
-  const clin = isClinician();
   const data = store.monitorFor(athlete.id);
   const since = new Date(Date.parse(today()) - 27 * 864e5).toISOString().slice(0, 10);
   const ci = data.checkins.filter((c) => c.date >= since).sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -313,12 +244,12 @@ export function MonitorCard({ athlete }) {
   data.sessions.filter((x) => x.date >= since).forEach((x) => { byDay[x.date] = (byDay[x.date] || 0) + (M.sessionLoad(x) || 0); });
   const open = r.signals.filter((s) => s.open);
   return html`<div class="card" style="margin-top:16px">
-    <div class="card-head"><div><h2>Monitoring, last 28 days</h2><p>Status <${LevelPill} level=${r.status} /> · last check-in ${r.lastCheckin ? fmtDate(r.lastCheckin) : 'none'} · session load this week ${r.load7 || 0}</p></div>
+    <div class="card-head"><div><h2>Check-ins, last 4 weeks</h2><p>Status <${LevelPill} level=${r.status} /> · last check-in ${r.lastCheckin ? fmtDate(r.lastCheckin) : 'none'} · session load this week ${r.load7 || 0}</p></div>
       <div class="row"><a class="btn sm" href=${'#/training?athlete=' + athlete.id}>Training</a><a class="btn sm primary" href=${'#/checkin/' + athlete.id}>Check in</a></div></div>
     <div class="grid cols-2">
       <div><p class="muted small">Daily session load (RPE × min)</p><${LineChart} series=${[{ name: 'Load', points: Object.entries(byDay).sort().map(([x, y]) => ({ x, y })) }]} height=${160} /></div>
-      <div><p class="muted small">${clin ? 'Pain (0 to 10) and fatigue (1 to 5)' : 'Fatigue (1 to 5)'}</p><${LineChart} series=${(clin ? [{ name: 'Pain', points: ci.map((c) => ({ x: c.date, y: c.pain ? Number(c.painScore) || 0 : 0 })) }] : []).concat([{ name: 'Fatigue', points: ci.filter((c) => has(c.fatigue)).map((c) => ({ x: c.date, y: Number(c.fatigue) })) }])} height=${160} /></div>
+      <div><p class="muted small">Pain (0 to 10) and tiredness (1 to 5)</p><${LineChart} series=${([{ name: 'Pain', points: ci.map((c) => ({ x: c.date, y: c.pain ? Number(c.painScore) || 0 : 0 })) }]).concat([{ name: 'Tiredness', points: ci.filter((c) => has(c.fatigue)).map((c) => ({ x: c.date, y: Number(c.fatigue) })) }])} height=${160} /></div>
     </div>
-    ${open.length ? html`<p class="small" style="margin-top:8px">${open.length} open signal${open.length > 1 ? 's' : ''}: ${open.map((s) => (clin || s.level === 'watch' || s.level === 'no_data' ? s.title : 'health item')).join('; ')}. <a href="#/signals">Open Signals</a></p>` : null}
+    ${open.length ? html`<p class="small" style="margin-top:8px">${open.length} thing${open.length > 1 ? 's' : ''} to look at: ${open.map((s) => s.title).join('; ')}. <a href="#/signals">Open Signals</a></p>` : null}
   </div>`;
 }

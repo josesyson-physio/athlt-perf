@@ -2,13 +2,16 @@
 // Everything is kept in memory after load and written through on every change.
 
 const DB_NAME = 'motionplus';
-const DB_VERSION = 2;
-const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews'];
-// Monitoring records, one store each: daily check-ins, training sessions, weekly OSTRC-H2 and signal reviews.
-export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews'];
+const DB_VERSION = 4;
+const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'users', 'posts', 'reactions'];
+// Records that belong to one athlete: check-ins, training, weekly health (older data), signal notes,
+// focus checks (older data), free test results, reports sent to a coach and plans sent back.
+export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans'];
+// Accounts on this device, coach posts in the feed and athletes' reactions to them.
+export const SOCIAL = ['users', 'posts', 'reactions'];
 
 let db = null;
-const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
+const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], focus: [], results: [], reports: [], plans: [], users: [], posts: [], reactions: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
 const listeners = new Set();
 
 function openDb() {
@@ -47,10 +50,11 @@ export function getState() { return state; }
 export async function init() {
   try {
     db = await openDb();
-    const [athletes, assessments, settings, ...monitor] = await Promise.all(STORES.map(all));
+    const loaded = await Promise.all(STORES.map(all));
+    const [athletes, assessments, settings] = loaded;
     state.athletes = athletes;
     state.assessments = assessments;
-    MONITOR.forEach((k, i) => { state[k] = monitor[i]; });
+    MONITOR.concat(SOCIAL).forEach((k) => { state[k] = loaded[STORES.indexOf(k)]; });
     if (settings[0]) state.settings = Object.assign(state.settings, settings[0]);
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   } catch (e) {
@@ -182,6 +186,17 @@ export async function saveRecord(kind, rec) {
   return r;
 }
 
+// Saves a record as is, without the JSON copy, so files (Blobs) in it survive.
+export async function putRaw(kind, rec) {
+  const r = Object.assign({}, rec, { updatedAt: now() });
+  if (!r.createdAt) r.createdAt = r.updatedAt;
+  const i = state[kind].findIndex((x) => x.id === r.id);
+  if (i >= 0) state[kind][i] = r; else state[kind].push(r);
+  await write(kind, r);
+  emit();
+  return r;
+}
+
 export async function deleteRecord(kind, id) {
   state[kind] = state[kind].filter((x) => x.id !== id);
   await write(kind, id, true);
@@ -203,7 +218,7 @@ export async function saveSettings(patch) {
 
 // ---------- backup ----------
 export function exportData() {
-  return Object.assign({ app: 'motionplus', version: 3, exported_at: now(), athletes: state.athletes, assessments: state.assessments, settings: state.settings }, Object.fromEntries(MONITOR.map((k) => [k, state[k]])));
+  return Object.assign({ app: 'motionplus', version: 3, exported_at: now(), athletes: state.athletes, assessments: state.assessments, settings: state.settings }, Object.fromEntries(MONITOR.map((k) => [k, state[k]])), Object.fromEntries(SOCIAL.map((k) => [k, state[k].map((x) => { const c = Object.assign({}, x); delete c.file; return c; })])));
 }
 
 export async function importData(data) {
@@ -217,7 +232,7 @@ export async function importData(data) {
     if (!s || !s.id || !s.athleteId || getAssessment(s.id)) { skipped++; continue; }
     state.assessments.push(s); await write('assessments', s); added++;
   }
-  for (const k of MONITOR) {
+  for (const k of MONITOR.concat(SOCIAL)) {
     for (const r of Array.isArray(data[k]) ? data[k] : []) {
       if (!r || !r.id || state[k].some((x) => x.id === r.id)) { skipped++; continue; }
       state[k].push(r); await write(k, r); added++;
@@ -230,7 +245,7 @@ export async function importData(data) {
 export async function clearAll() {
   for (const a of state.athletes) await write('athletes', a.id, true);
   for (const a of state.assessments) await write('assessments', a.id, true);
-  for (const k of MONITOR) { for (const r of state[k]) await write(k, r.id, true); state[k] = []; }
+  for (const k of MONITOR.concat(SOCIAL)) { for (const r of state[k]) await write(k, r.id, true); state[k] = []; }
   state.athletes = [];
   state.assessments = [];
   emit();

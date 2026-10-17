@@ -31,7 +31,7 @@ function copyDir(src, dest) {
 }
 copyDir(path.join(root, 'app'), dist);
 fs.mkdirSync(path.join(dist, 'engine'), { recursive: true });
-for (const f of ['engine.js', 'metrics.js', 'monitor.js']) fs.copyFileSync(path.join(root, 'engine', f), path.join(dist, 'engine', f));
+for (const f of ['engine.js', 'metrics.js', 'monitor.js', 'tests.js']) fs.copyFileSync(path.join(root, 'engine', f), path.join(dist, 'engine', f));
 
 function list(dir, base = '') {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? list(path.join(dir, e.name), base + e.name + '/') : [base + e.name]));

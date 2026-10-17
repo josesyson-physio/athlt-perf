@@ -43,7 +43,7 @@ export function Athletes({ query }) {
 
 export function AthleteForm({ id }) {
   const existing = id ? store.getAthlete(id) : null;
-  const [f, setF] = useState(() => existing ? JSON.parse(JSON.stringify(existing)) : { name: '', dob: '', age: '', sex: '', heightCm: '', massKg: '', sport: '', position: '', level: '', dominantSide: '', medicalNotes: '', medications: '', consentOnFile: false, monitorConsent: false, monitorConsentBy: '', monitorConsentDate: '', monitorAssent: false });
+  const [f, setF] = useState(() => existing ? JSON.parse(JSON.stringify(existing)) : { name: '', dob: '', age: '', sex: '', heightCm: '', massKg: '', sport: '', position: '', level: '', dominantSide: '', medicalNotes: '', medications: '', consentOnFile: false });
   const [reason, setReason] = useState('');
   const [tried, setTried] = useState(false);
   const set = (k) => (v) => setF(Object.assign({}, f, { [k]: v }));
@@ -52,8 +52,6 @@ export function AthleteForm({ id }) {
   if (!f.name.trim()) errors.push('Name');
   if (!has(f.dob) && !has(f.age)) errors.push('Date of birth or age');
   if (existing && !reason.trim()) errors.push('Reason for the edit');
-  if (f.monitorConsent && (!f.monitorConsentBy || !f.monitorConsentDate)) errors.push('Who gave monitoring consent and when');
-  if (f.monitorConsent && f.monitorConsentBy === 'Athlete (18 or over)' && store.ageAt(f) != null && store.ageAt(f) < 18) errors.push('Parent or guardian consent for an athlete under 18');
   const save = async (e) => {
     e.preventDefault();
     setTried(true);
@@ -84,11 +82,6 @@ export function AthleteForm({ id }) {
         <${Field} label="Medications that affect heart rate" type="textarea" value=${f.medications} onInput=${set('medications')} hint="For example beta-blockers. These change how HR results can be read." />
       </div>
       <${Check} label="Signed consent for assessment and data storage is on file" checked=${f.consentOnFile} onChange=${set('consentOnFile')} /></div>
-      <div class="card"><h2>Monitoring consent</h2><p class="muted small">Daily check-ins and weekly health questions need their own consent. Under 18, a parent or guardian consents and the athlete agrees (assent). Either can withdraw at any time, and flags never decide selection.</p>
-        <div class="fields"><${Field} label="Consent given by" value=${f.monitorConsentBy || ''} onInput=${set('monitorConsentBy')} options=${['', 'Athlete (18 or over)', 'Parent or guardian']} /><${Field} label="Date of consent" type="date" value=${f.monitorConsentDate || ''} onInput=${set('monitorConsentDate')} /></div>
-        <${Check} label="Signed consent for daily monitoring is on file" checked=${!!f.monitorConsent} onChange=${set('monitorConsent')} />
-        ${(() => { const age = store.ageAt(f); return age == null || age < 18 ? html`<${Check} label="The athlete has agreed (assent) to daily monitoring" checked=${!!f.monitorAssent} onChange=${set('monitorAssent')} />` : null; })()}
-        ${f.monitorConsent && f.monitorConsentBy === 'Athlete (18 or over)' && store.ageAt(f) != null && store.ageAt(f) < 18 ? html`<div class="notice warn">This athlete is under 18. A parent or guardian must give consent.</div>` : null}</div>
       ${existing ? html`<div class="card"><h2>Reason for this edit</h2><${Field} label="Kept in the profile history" value=${reason} onInput=${setReason} placeholder="For example: corrected date of birth from ID" warn=${tried && !reason.trim() ? 'Enter a reason so the change can be traced.' : ''} /></div>` : null}
       ${tried && errors.length ? html`<div class="notice warn">Still needed: ${errors.join(', ')}.</div>` : null}
       <div class="row"><button class="btn primary" type="submit">${existing ? 'Save changes' : 'Add athlete'}</button><a class="btn ghost" href=${existing ? '#/athletes/' + existing.id : '#/athletes'}>Cancel</a></div>
@@ -133,7 +126,7 @@ export function AthleteProfile({ id }) {
     </div>
     <div class="card"><h2>Profile</h2>
       <dl class="grid" style="gap:10px;margin:0">
-        ${[['Sex used by equations', a.sex || 'Not recorded'], ['Training level', a.level || '—'], ['Dominant side', a.dominantSide || '—'], ['Medical history', a.medicalNotes || 'None recorded'], ['HR-affecting medication', a.medications || 'None recorded'], ['Consent on file', a.consentOnFile ? 'Yes' : 'No'], ['Monitoring consent', a.monitorConsent ? (a.monitorConsentBy || 'Yes') + (a.monitorConsentDate ? ', ' + fmtDate(a.monitorConsentDate) : '') + (canMonitor(a) ? '' : ' (assent not recorded)') : 'Not recorded']].map(([k, v]) => html`<div><dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd></div>`)}
+        ${[['Sex used by equations', a.sex || 'Not recorded'], ['Training level', a.level || '—'], ['Dominant side', a.dominantSide || '—'], ['Medical history', a.medicalNotes || 'None recorded'], ['HR-affecting medication', a.medications || 'None recorded'], ['Consent on file', a.consentOnFile ? 'Yes' : 'No']].map(([k, v]) => html`<div><dt class="muted small">${k}</dt><dd style="margin:0">${v}</dd></div>`)}
       </dl>
       <details><summary>Profile history (${(a.history || []).length})</summary><ul class="small muted" style="padding-left:18px">${(a.history || []).slice().reverse().map((x) => html`<li>${fmtDate(x.at)}: ${x.change}${x.reason ? ' (' + x.reason + ')' : ''} · ${x.by}</li>`)}</ul></details>
     </div>

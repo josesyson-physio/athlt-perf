@@ -10,12 +10,16 @@ import { Report, Reports } from './pages/report.js';
 import { Analytics } from './pages/analytics.js';
 import { Protocols } from './pages/protocols.js';
 import { Settings } from './pages/settings.js';
-import { Signals, SquadCheckin, CheckinForm, WeeklyForm, TrainingLog, SessionForm } from './pages/monitor.js';
+import { Signals, SquadCheckin, CheckinForm, TrainingLog, SessionForm } from './pages/monitor.js';
+import { Welcome, SignUp, SignIn } from './pages/welcome.js';
+import { AthleteApp } from './pages/athlete.js';
+import { CoachApp, COACH_PATHS } from './pages/coach.js';
+import { me, isCoachRole } from './session.js';
 
 const NAV = [
-  { path: '/', label: 'Dashboard', icon: 'home', group: 'Workspace' },
+  { path: '/', label: 'Coach home', short: 'Home', icon: 'home', group: 'Coach' },
+  { path: '/dashboard', label: 'Overview', icon: 'chart', group: 'Coach' },
   { path: '/signals', label: 'Signals', icon: 'pulse', group: 'Monitor' },
-  { path: '/checkin', label: 'Squad check-in', short: 'Check-in', icon: 'check', group: 'Monitor' },
   { path: '/training', label: 'Training log', short: 'Training', icon: 'bolt', group: 'Monitor' },
   { path: '/athletes', label: 'Athletes', icon: 'users', group: 'Assess' },
   { path: '/assess', label: 'New assessment', icon: 'clipboard', group: 'Assess' },
@@ -33,7 +37,7 @@ function parse() {
 
 function route(r) {
   const [a, b, c] = r.parts;
-  if (!a) return html`<${Dashboard} />`;
+  if (a === 'dashboard') return html`<${Dashboard} />`;
   if (a === 'athletes' && !b) return html`<${Athletes} query=${r.query} />`;
   if (a === 'athletes' && b === 'new') return html`<${AthleteForm} />`;
   if (a === 'athletes' && c === 'edit') return html`<${AthleteForm} id=${b} />`;
@@ -44,7 +48,6 @@ function route(r) {
   if (a === 'reports') return html`<${Report} id=${b} />`;
   if (a === 'signals') return html`<${Signals} query=${r.query} />`;
   if (a === 'checkin' && !b) return html`<${SquadCheckin} />`;
-  if (a === 'checkin' && c === 'weekly') return html`<${WeeklyForm} id=${b} />`;
   if (a === 'checkin') return html`<${CheckinForm} id=${b} />`;
   if (a === 'training' && !b) return html`<${TrainingLog} query=${r.query} />`;
   if (a === 'training' && b === 'new') return html`<${SessionForm} />`;
@@ -57,7 +60,35 @@ function route(r) {
 
 const isActive = (r, path) => (path === '/' ? r.path === '/' : r.path.startsWith(path));
 
+// Signed out: welcome and sign-in. Athletes: the athlete app. Coaches: the coach app, with the
+// assessment tools in the full workspace below.
+function Root() {
+  const [r, setR] = useState(parse());
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const onHash = () => { setR(parse()); window.scrollTo(0, 0); };
+    window.addEventListener('hashchange', onHash);
+    const unsub = store.subscribe(() => setTick((t) => t + 1));
+    setTick((t) => t + 1);
+    return () => { window.removeEventListener('hashchange', onHash); unsub(); };
+  }, []);
+  const s = store.getState();
+  if (!s.ready) return html`<div class="x"><div class="x-page plain"><p class="x-muted">Loading…</p></div></div>`;
+  const u = me();
+  const [a, b] = r.parts;
+  let view;
+  if (!u) {
+    view = a === 'join' ? html`<${SignUp} key=${b} role=${b === 'athlete' ? 'athlete' : 'coach'} />` : a === 'signin' ? html`<${SignIn} />` : html`<${Welcome} />`;
+    view = html`<div class="x">${view}</div>`;
+  } else if (!isCoachRole(u.role)) view = html`<${AthleteApp} r=${r} />`;
+  else if (COACH_PATHS.includes(a || '')) view = html`<${CoachApp} r=${r} />`;
+  else return html`<${App} />`;
+  document.body.dataset.ui = 'x';
+  return html`${view}<${Toast} />`;
+}
+
 function App() {
+  document.body.dataset.ui = 'pro';
   const [r, setR] = useState(parse());
   const [, setTick] = useState(0);
   const [more, setMore] = useState(false);
@@ -75,7 +106,7 @@ function App() {
   const search = (e) => { e.preventDefault(); go('/athletes?q=' + encodeURIComponent(q)); };
   return html`<div class="app">
     <aside class="side" aria-label="Main navigation">
-      <div class="wordmark"><b>MotionPlus</b><small>Sports assessment & reporting</small></div>
+      <a class="wordmark" href="#/" style="color:inherit;text-decoration:none"><b>MotionPlus</b><small>Coach tools</small></a>
       ${groups.map((g) => html`<div class="navlabel">${g}</div><nav class="nav">${NAV.filter((n) => n.group === g).map((n) => html`<a href=${'#' + n.path} class=${isActive(r, n.path) ? 'active' : ''} aria-current=${isActive(r, n.path) ? 'page' : null}><${Icon} name=${n.icon} />${n.label}</a>`)}</nav>`)}
       <div class="who"><b>${s.settings.assessorName || 'Assessor not set'}</b><div class="muted small">${s.settings.clinicName || ''}</div>${!s.settings.assessorName ? html`<a href="#/settings" class="small">Add your name</a>` : null}</div>
     </aside>
@@ -97,6 +128,6 @@ function App() {
   </div>`;
 }
 
-render(html`<${App} />`, document.getElementById('root'));
+render(html`<${Root} />`, document.getElementById('root'));
 store.init();
 initPwa();

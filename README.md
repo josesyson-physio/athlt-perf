@@ -1,9 +1,9 @@
-# MotionPlus — manual sports assessment and reporting
+# MotionPlus: find your weak side, close the gap
 
-Built from "MotionPlus Manual Sports Assessment & AI Reporting Engine" v1.0 and the responsive UI/UX template.
-For sports physios, sports scientists and S&C coaches: dashboard, athlete records, a guided assessment
-(screening, vitals, cardio/VO2, strength and power, mobility and balance), printable reports with sign-off,
-trends and a protocol library. Works offline; records stay on the device.
+A free training app for athletes, built first for village and low-income athletes who could never pay for lab
+testing. Athletes do simple tests with basic equipment anyone can afford (a wall, a step, a tape measure, a
+phone stopwatch), and the **Mirror** shows where the left side lags the right. Coaches, trainers and physios
+get the athlete's report and send back a plan; athletes see their posts in a feed and star or react.
 
 ## Use the app
 Once GitHub Pages is on (Settings → Pages → Source: GitHub Actions), the app is at
@@ -33,18 +33,21 @@ After that it works with no signal. Results stay on the phone; use **Download ba
 Tests are ranked in accuracy tiers: A direct gas analysis (lab or portable analyser, entered as Measured),
 B max-effort field tests, C submaximal HR tests, D no-exercise. Use the highest tier the athlete can safely do.
 
-## Monitor: problem detection for any sport
-Built from "The Signal in the Noise" (2026-10-14). On a shared tablet, athletes do a 30–60 s daily check-in
-(pain and where, fatigue, soreness, sleep, illness, 3 urgent-symptom questions), a weekly OSTRC-H2 health
-questionnaire, and coaches log sessions (planned vs actual, session RPE × minutes).
-**Signals** lists who needs attention: Urgent (red-flag symptom, shows emergency advice), Review (repeated or
-high pain, substantial OSTRC problem, confidential items), Watch (RPE above usual, short sleep, load jump),
-No data (missing check-ins are never shown as fine). Every signal needs a recorded review.
-- Needs monitoring consent, plus the athlete's own assent under 18.
-- A clinician PIN hides health detail from coaches on the shared device (a privacy screen, not encryption).
-- Settings → Pilot export gives an anonymised CSV (P01, P02…) for the pilot analysis.
-- OSTRC-H2 wording is copyright (BMJ/OSTRC): get permission before any commercial use.
-- Thresholds are a starting point for clinician sign-off, not validated cut-offs.
+## Two sides of the app
+- **Athletes** (`app/js/pages/athlete.js`): Today (streak, daily pulse, Mirror, beat your ghost), Tests (10 free
+  field tests in `engine/tests.js`, each cut-off from a published study), Mirror (left vs right per body area,
+  send to coach, save as PDF), Feed (coach posts; only athletes can star or react), Library (26 basic exercises).
+- **Coaches, trainers and physios** (`app/js/pages/coach.js`): Inbox of athlete reports with a plan composer,
+  Post (insights, documents and training sessions to the team feed), Team (share a 6-character team code),
+  Library, and Tools (the full assessment, VO2 and Signals screens).
+- Accounts are kept on this phone for now (`app/js/session.js`); online accounts across phones need a server.
+- **Try the demo** on the welcome screen loads invented athletes and a physio (password `demo1234`).
+
+## Signals: problem detection
+The daily pulse (pain and where, tiredness, soreness, sleep, illness, 3 urgent questions) feeds **Signals**
+(`engine/monitor.js`): Stop and get help, Look at today, Keep an eye on, No answers yet. Each athlete is
+compared with their own usual. Thresholds are a starting point, not validated cut-offs.
+OSTRC-H2 wording is copyright (BMJ/OSTRC): get permission before any commercial use.
 
 ## Methods
 | Test | Cost | Error | Equation source |
@@ -57,7 +60,7 @@ No data (missing check-ins are never shown as fine). Every signal needs a record
 | 1.5-mile run | track | not reported | ACSM field equation |
 
 ## Ethics and safety built in
-Screening gate (8 questions; any yes locks exercise tests until a clinician clears), consent required,
+Urgent symptoms stop the app and show emergency advice (112); hard tests have a safety check,
 never guesses inputs, incomplete test = invalid, out-of-population flags, no percentiles/ratings without a
 cited matched reference set, data stays on device, binary-sex limitation of equations disclosed,
 optical/camera HR bias on darker skin and during motion disclosed.
