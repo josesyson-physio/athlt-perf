@@ -17,6 +17,7 @@
     hop: 'Weaker leg under 90% of the stronger is the usual concern level (return-to-sport practice).',
     reach: 'Forward reach more than 4 cm different left to right went with 2.5× injury risk (Plisky 2006).',
     sideplank: 'Left and right within 5% of each other counts as balanced (McGill).',
+    reaction: 'Phone-measured: touch screens and speakers add their own delay, so compare only with your own past results on the same phone.',
     squeeze: 'Any groin pain on the 5-second squeeze is worth showing a physio (Thorborg 2017).',
   };
 
@@ -42,6 +43,8 @@
       steps: ['Stand with toes behind a line, feet apart.', 'Swing your arms and jump forward as far as you can, landing on both feet.', 'Measure to the back of the nearest heel. Best of 3.'] },
     { key: 'sprint20', name: '20 m sprint', area: 'speed', unit: 's', sides: false, lowerBetter: true, equipment: ['A tape measure', 'A friend with a phone stopwatch'],
       steps: ['Mark a start and a finish line 20 m apart.', 'Start still, one foot forward. Your friend starts the watch on your first move.', 'Sprint through the finish. Best of 3, with full rest.'] },
+    { key: 'reaction', name: 'Reaction start', area: 'speed', unit: 'ms', sides: false, lowerBetter: true, phone: true, equipment: ['Your phone'],
+      steps: ['Hold the phone in a sprint-start or ready position, thumb just above the screen.', 'Wait for the beep and flash, then tap as fast as you can. Tapping early is a false start.', 'Five tries. Your result is the middle time of the five.'] },
   ];
 
   const AREAS = [
@@ -145,7 +148,7 @@
   function check(testKey, entry) {
     const t = byKey(testKey);
     if (!t) return ['Unknown test.'];
-    const max = { cm: 400, raises: 150, reps: 150, s: 600, m: 6000, 'pain 0 to 10': 10 }[t.unit];
+    const max = { cm: 400, raises: 150, reps: 150, s: 600, m: 6000, ms: 2000, 'pain 0 to 10': 10 }[t.unit];
     const vals = t.sides ? [['left', entry.left], ['right', entry.right]] : [['value', entry.value]];
     const errs = [];
     vals.forEach(([k, v]) => {
@@ -154,6 +157,7 @@
       else if (n < 0 || (max && n > max)) errs.push((k === 'value' ? 'Result' : k[0].toUpperCase() + k.slice(1)) + ' looks wrong: ' + n + ' ' + t.unit + '.');
     });
     if (testKey === 'sprint20' && isNum(num(entry.value)) && num(entry.value) < 2) errs.push('Under 2 seconds for 20 m is not possible. Check the time.');
+    if (testKey === 'reaction' && isNum(num(entry.value)) && num(entry.value) < 80) errs.push('Under 80 ms is faster than humanly possible. That was a guess, so try again.');
     return errs;
   }
 
