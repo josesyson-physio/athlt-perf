@@ -6,6 +6,8 @@ import * as store from '../store.js';
 import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
 import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone, ladderFor, logLadder } from '../social.js';
 import { buildWarmup } from '../warmup.js';
+import { growthGuide } from '../growth.js';
+import { questionsFor, energyResult } from '../energy.js';
 import { STAGES, stageByKey, judgeAttempt, ladderStatus, hopLsi, PAIN_OK, HOP_OK } from '../ladder.js';
 import { prosOf, unreadFor } from '../connect.js';
 import { Feed, PostPage } from './feed.js';
@@ -14,7 +16,8 @@ import { MirrorBoard, BodyMirror, PainMap, ExerciseRows, Spark } from './parts.j
 import { Logo, Wordmark } from '../logo.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
-import { ReadAloud, TestTool, VoiceSwitch, SessionCoach } from './tools.js';
+import { ReadAloud, TestTool, VoiceSwitch, VoiceRow, SessionCoach } from './tools.js';
+import { isLarge, setLargeText } from '../access.js';
 
 const T = globalThis.MotionPlusTests;
 const M = globalThis.MotionPlusMonitor;
@@ -28,7 +31,7 @@ const TABS = [
   { path: '/me', label: 'Me', icon: 'me' },
 ];
 const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress', 'session', 'warmup', 'ladder'];
-const ME = ['me', 'find', 'pro'];
+const ME = ['me', 'find', 'pro', 'growth', 'energy'];
 
 export function AthleteApp({ r }) {
   const [a, b] = r.parts;
@@ -53,6 +56,8 @@ export function AthleteApp({ r }) {
   else if (a === 'session') page = html`<${Session} key=${b} planId=${b} />`;
   else if (a === 'warmup') page = html`<${Warmup} />`;
   else if (a === 'ladder') page = html`<${Ladder} />`;
+  else if (a === 'growth') page = html`<${Growth} />`;
+  else if (a === 'energy') page = html`<${Energy} />`;
   else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go home</a></div></div>`;
   const active = (p) => (p === '/' ? !a || a === 'pulse' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
   const hideTabs = a === 'pulse' || a === 'session' || a === 'warmup' || (a === 'tests' && b) || (a === 'chat' && b);
@@ -212,7 +217,7 @@ function Pulse() {
     if (!rec.pain) { rec.regions = []; rec.painScore = ''; rec.painAffectsRunning = false; }
     await store.saveRecord('checkins', rec);
     if (RED.some(([k]) => rec.redFlags[k])) { setUrgent(true); return; }
-    toast('Pulse saved. Streak kept.');
+    toast('Pulse saved on your phone. Streak kept.');
     go('/');
   };
   const toggle = (r) => set('regions', f.regions.includes(r) ? f.regions.filter((x) => x !== r) : f.regions.concat([r]));
@@ -348,6 +353,7 @@ function TestRun({ testKey }) {
       <div style="padding:40px 4px 8px;display:flex;flex-direction:column;gap:10px">
         <span class="x-badge" style="width:56px;height:56px;border-radius:18px"><${XIcon} name=${beat && beat.length ? 'star' : 'check'} size=${28} /></span>
         <h1 class="x-title">${beat && beat.length ? 'You beat your ghost' : g ? 'Saved' : 'First result saved'}</h1>
+        <span class="sg-saved"><${XIcon} name="check" size=${14} />Saved on phone · works offline</span>
         <p class="x-sub">${beat && beat.length ? (t.sides ? beat.map((s) => s[0].toUpperCase() + s.slice(1)).join(' and ') + ' side' + (beat.length > 1 ? 's' : '') + ' set a new best.' : 'New personal best: ' + fmtVal(t, saved.value) + '.') : g ? 'This is your new ghost to chase next time.' : 'This is your ghost. Beat it next time.'}</p>
       </div>
       ${j ? html`<div class="x-card" style="flex-direction:row;gap:12px;align-items:center"><span class=${'x-badge ' + (j.status === 'even' ? '' : j.status)}><${XIcon} name=${j.status === 'even' ? 'check' : 'alert'} size=${18} /></span><div style="flex:1"><b>${STATUS_WORD[j.status]}</b><div class="x-small x-muted">${j.text}</div></div></div>` : null}
@@ -420,7 +426,7 @@ export function Library({ query }) {
     <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
     <div class="x-head"><div><div class="x-over">Basic equipment</div><h1 class="x-title">Library</h1></div></div>
     <label class="x-field"><span class="x-noprint" style="position:absolute;left:-9999px">Search exercises</span><input class="x-input" style="background:#fff" type="search" placeholder="Search exercises" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
-    <div class="x-chips"><button type="button" class=${'x-chip' + (!area ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(!area)} onClick=${() => setArea('')}>All</button>${Object.entries(LIB_AREAS).map(([k, v]) => html`<button type="button" class=${'x-chip' + (area === k ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(area === k)} onClick=${() => setArea(k)}>${v}</button>`)}</div>
+    <div class="x-chips"><button type="button" class=${'x-chip' + (!area ? ' tint' : '')} style="border:0;min-height:48px" aria-pressed=${String(!area)} onClick=${() => setArea('')}>All</button>${Object.entries(LIB_AREAS).map(([k, v]) => html`<button type="button" class=${'x-chip' + (area === k ? ' tint' : '')} style="border:0;min-height:48px" aria-pressed=${String(area === k)} onClick=${() => setArea(k)}>${v}</button>`)}</div>
     <div class="x-list">${list.length ? list.map((x) => html`<a class="x-row" href=${'#/library/' + x.key}><div class="grow"><b>${x.name}</b><span class="x-small x-muted">${LIB_AREAS[x.area]} · ${x.dose} · ${x.equipment}</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`) : html`<div class="x-row"><span class="x-muted">No exercises match.</span></div>`}</div>
     <p class="x-small x-dim" style="padding:0 4px">Doses are a starting point. Your coach or physio can change them. Stop if anything hurts sharply.</p>
   </div>`;
@@ -494,6 +500,65 @@ function Ladder() {
   </div>`;
 }
 
+// Growth-spurt guard: under-18s see a likely range for their fastest growth and what it means for load.
+function Growth() {
+  const a = myAthlete();
+  const [f, setF] = useState(() => { try { return JSON.parse(localStorage.getItem('sg-growth-' + (a && a.id)) || 'null') || {}; } catch (e) { return {}; } });
+  const [out, setOut] = useState(null);
+  if (!a) return html`<${NoAthlete} />`;
+  const set = (k) => (v) => setF(Object.assign({}, f, { [k]: v }));
+  const run = () => {
+    const born = f.born ? Date.parse(f.born + '-15') : NaN;
+    const age = isFinite(born) ? (Date.now() - born) / (365.25 * 864e5) : NaN;
+    const g = growthGuide({ sex: a.sex, age, heightCm: f.h, sittingCm: f.sh, weightKg: f.w });
+    setOut(g);
+    if (!g.errors) { try { localStorage.setItem('sg-growth-' + a.id, JSON.stringify(f)); } catch (e) { /* private mode */ } }
+  };
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/me"><${XIcon} name="back" size=${20} />Me</a><span class="sg-saved"><${XIcon} name="check" size=${14} />Saved on phone</span></div>
+    <div><div class="x-over">For ages 8 to 17</div><h1 class="x-title">Growth-spurt guard</h1></div>
+    <p class="x-sub" style="padding:0 4px">During the fastest growth, bones and tendons are easier to hurt. This estimates when yours is, so training can go lighter at the right time.</p>
+    <div class="x-card" style="gap:12px">
+      <${XField} label="Month you were born" type="month" value=${f.born || ''} onInput=${set('born')} />
+      <${XField} label="Height, cm (no shoes)" type="number" inputmode="decimal" value=${f.h || ''} onInput=${set('h')} />
+      <${XField} label="Sitting height, cm (seat to top of head)" type="number" inputmode="decimal" value=${f.sh || ''} onInput=${set('sh')} />
+      <${XField} label="Weight, kg" type="number" inputmode="decimal" value=${f.w || ''} onInput=${set('w')} />
+      <${ReadAloud} label="How to measure" text="Height: stand tall against a wall with no shoes, heels together. Sitting height: sit on a flat chair against the wall, sit tall, and measure from the seat to the top of your head." />
+      <button class="x-btn" onClick=${run}>Check my growth</button>
+    </div>
+    ${out && out.errors ? html`<div class="x-err" role="alert">${out.errors.join(' ')}</div>` : null}
+    ${out && !out.errors ? html`<div class=${'x-card' + (out.phase === 'now' ? '' : '')} style=${out.phase === 'now' ? 'box-shadow:inset 0 0 0 1.5px var(--x-watch)' : ''}>
+      <div class="x-kicker" style=${out.phase === 'now' ? 'color:var(--x-watch-text)' : ''}>${out.phase === 'now' ? 'Growth spurt likely now' : out.phase === 'before' ? 'Growth spurt likely ahead' : 'Growth spurt likely passed'}</div>
+      <h2>Fastest growth: about age ${out.from} to ${out.to}</h2>
+      <p class="x-muted">${out.text}</p>
+      <p class="x-small x-dim">Estimated with the Mirwald equation (2002). It can be a year or more out, more so for early or late developers. Remeasure every 3 months.</p>
+      <${ReadAloud} text=${out.text} />
+    </div>` : null}
+  </div>`;
+}
+
+// Private energy check. Answers stay on this phone and are not sent to anyone.
+function Energy() {
+  const a = myAthlete();
+  const [ans, setAns] = useState({});
+  const [out, setOut] = useState(null);
+  if (!a) return html`<${NoAthlete} />`;
+  const age = a.dob ? Math.floor((Date.now() - Date.parse(a.dob)) / (365.25 * 864e5)) : 18;
+  const qs = questionsFor(a.sex, age);
+  const check = () => { const r = energyResult(ans, a.sex, age); setOut(r || { missing: true }); };
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/me"><${XIcon} name="back" size=${20} />Me</a><span class="sg-saved"><${XIcon} name="check" size=${14} />Private</span></div>
+    <div><div class="x-over">Only you see this</div><h1 class="x-title">Energy check</h1></div>
+    <p class="x-sub" style="padding:0 4px">When training uses more energy than your body gets, health and performance drop. These are the common warning signs. Your answers are not saved or sent.</p>
+    ${qs.map((q) => html`<div class="x-card"><b>${q.text}</b><${XSeg} label=${q.text} value=${ans[q.key]} options=${yesNo} onChange=${(v) => setAns(Object.assign({}, ans, { [q.key]: v }))} /></div>`)}
+    <button class="x-btn" onClick=${check}>See my result</button>
+    ${out && out.missing ? html`<div class="x-err" role="alert">Answer every question first.</div>` : null}
+    ${out && !out.missing ? html`<div class="x-card" style=${out.level === 'talk' ? 'box-shadow:inset 0 0 0 1.5px var(--x-work)' : ''}><div class="x-kicker">${out.level === 'talk' ? 'Talk to your physio' : out.level === 'watch' ? 'Keep an eye on it' : 'No warning signs'}</div><p>${out.text}</p>
+      <p class="x-small x-dim">Based on the warning signs in the IOC statement on low energy in sport (2023) and the LEAF-Q and LEAM-Q questionnaires.</p>
+      ${out.level === 'talk' ? html`<a class="x-btn soft sm" href="#/chat">Message your physio</a>` : null}</div>` : null}
+  </div>`;
+}
+
 // ---------- plans and profile ----------
 function Plans() {
   const a = myAthlete();
@@ -519,10 +584,22 @@ function Me() {
   const u = me();
   const a = myAthlete();
   const others = store.getState().users.filter((x) => x.id !== u.id);
+  const [large, setLargeState] = useState(isLarge());
+  const setLarge = (on) => { setLargeText(on); setLargeState(on); };
   return html`<div class="x-page">
     <div style="display:flex;gap:14px;align-items:center;padding:12px 4px 0"><span class="x-avatar" style="width:64px;height:64px;font-size:26px">${initial(u.name)}</span><div><h1 class="x-title md">${u.name}</h1><p class="x-muted">${a ? [a.position || 'Athletics', a.dob ? a.dob.slice(0, 4) : ''].filter(Boolean).join(' · ') : ''}</p></div></div>
     <div class="x-section">Your coaches and physios</div>
     <${MyPros} />
+    <div class="x-section">Health checks</div>
+    <div class="x-list">
+      <a class="x-row" href="#/growth"><span class="x-badge"><${XIcon} name="up" size=${18} /></span><div class="grow"><b>Growth-spurt guard</b><span class="x-small x-muted">Under 18: when is your fastest growth?</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+      <a class="x-row" href="#/energy"><span class="x-badge"><${XIcon} name="strong" size=${18} /></span><div class="grow"><b>Private energy check</b><span class="x-small x-muted">Warning signs of low energy. Stays on your phone.</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+    </div>
+    <div class="x-section">Settings</div>
+    <div class="x-list">
+      <button class="x-row" type="button" aria-pressed=${String(large)} onClick=${() => setLarge(!large)}><span class="x-badge"><span style="font-weight:800">Aa</span></span><div class="grow"><b>Large text</b><span class="x-small x-muted">${large ? 'On: bigger text and buttons' : 'Off'}</span></div><span class=${'sg-switch' + (large ? ' on' : '')} aria-hidden="true"><i></i></span></button>
+      <${VoiceRow} />
+    </div>
     <div class="x-list">
       <a class="x-row" href="#/plans"><div class="grow"><b>Your programmes</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
       <a class="x-row" href="#/feed?show=saved"><div class="grow"><b>Saved posts</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>

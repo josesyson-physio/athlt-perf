@@ -33,6 +33,12 @@ export function ReadAloud({ text, label }) {
   return html`<button type="button" class="x-btn ghost sm sg-read" aria-pressed=${String(on)} onClick=${go}><${XIcon} name=${on ? 'stop' : 'speaker'} size=${18} />${on ? 'Stop reading' : label || 'Read aloud'}</button>`;
 }
 
+export function VoiceRow() {
+  const [on, setOn] = useState(isVoiceOn());
+  if (!canSpeak()) return null;
+  return html`<button class="x-row" type="button" aria-pressed=${String(on)} onClick=${() => { setVoice(!on); setOn(!on); if (!on) speak('Voice coach on.', { force: true }); }}><span class="x-badge"><${XIcon} name="speaker" size=${18} /></span><div class="grow"><b>Voice coach</b><span class="x-small x-muted">${on ? 'On: tests and sessions speak to you' : 'Off'}</span></div><span class=${'sg-switch' + (on ? ' on' : '')} aria-hidden="true"><i></i></span></button>`;
+}
+
 export function VoiceSwitch() {
   const [on, setOn] = useState(isVoiceOn());
   if (!canSpeak()) return null;
