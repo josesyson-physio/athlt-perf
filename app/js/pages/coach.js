@@ -5,8 +5,9 @@ import { go, toast } from '../ui.js';
 import { XIcon, XSeg, XField, initial, ago, firstName } from '../xui.js';
 import * as store from '../store.js';
 import { me, signOut, switchTo, ROLES } from '../session.js';
-import { inbox, sendPlan, plansFor, createPost, deletePost, postsBy, POST_TYPES, THEMES, MAX_FILE, MAX_VIDEO, planStatus } from '../social.js';
-import { athletesOf, teamFor, unreadFor } from '../connect.js';
+import { inbox, sendPlan, plansFor, createPost, deletePost, postsBy, POST_TYPES, THEMES, MAX_FILE, MAX_VIDEO, planStatus, ladderFor, startLadder } from '../social.js';
+import { STAGES, stageByKey, ladderStatus } from '../ladder.js';
+import { athletesOf, teamFor, unreadFor, prosOf } from '../connect.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise } from '../library.js';
 import { evaluateAthlete, LEVEL } from '../monitor.js';
 import { Library, Exercise } from './athlete.js';
@@ -61,10 +62,47 @@ function Inbox() {
     <div class="x-head"><div><div class="x-over">${ROLES[u.role]}${u.speciality ? ' · ' + u.speciality : ''}</div><h1 class="x-title">Inbox</h1></div><a class="x-avatar" href="#/me" aria-label="Your account">${initial(u.name)}</a></div>
     <p class="x-sub" style="padding:0 4px">${fresh.length ? fresh.length + ' new report' + (fresh.length > 1 ? 's' : '') + ' waiting for a programme.' : 'All caught up.'}</p>
     <${Requests} />
+    <${PhysioChecks} u=${u} />
     ${!list.length ? html`<div class="x-card" style="align-items:center;text-align:center;padding:36px 18px"><span class="x-badge"><${XIcon} name="inbox" /></span><b>No reports yet</b><p class="x-muted x-small">Athletes connect with you from your profile and posts, or with your team code <b>${u.teamCode}</b>. Their Mirror lands here.</p><a class="x-btn soft sm" href="#/roster">Your athletes</a></div>`
       : html`<div class="x-section">Reports</div><div class="x-list">${list.map((rep) => html`<a class="x-row" href=${'#/inbox/' + rep.id}><span class="x-avatar soft">${initial(rep.athleteName)}</span>
         <div class="grow"><b>${rep.athleteName}</b><span class="x-small x-muted">${flags(rep).length ? flags(rep).map((x) => x.name).join(', ') + ' to look at' : 'All even'}${rep.pulse.painDays ? ' · pain ' + rep.pulse.painDays + ' of 7 days' : ''}</span></div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><span class="x-small x-dim">${ago(rep.createdAt)}</span>${rep.status === 'new' ? html`<span class="x-chip tint">New</span>` : html`<span class="x-chip">Programme sent</span>`}</div></a>`)}</div>`}
+  </div>`;
+}
+
+// Athletes with pain 4/10 or more in one area two days running. Goes to their physio, or to the
+// coach when the athlete has no physio yet.
+function PhysioChecks({ u }) {
+  const rows = athletesOf(u.id).map((au) => {
+    const ath = au.athleteId ? store.getAthlete(au.athleteId) : null;
+    if (!ath) return null;
+    const hasPhysio = prosOf(au.id).some((p) => p.role === 'physio');
+    if (u.role !== 'physio' && hasPhysio) return null;
+    const sig = evaluateAthlete(ath).signals.find((x) => x.rule === 'pain_physio');
+    return sig ? { au, sig } : null;
+  }).filter(Boolean);
+  if (!rows.length) return null;
+  return html`<div class="x-section" style="color:var(--x-work-text)">Physio checks</div><div class="x-list">${rows.map(({ au, sig }) => html`<a class="x-row" href=${'#/chat/' + au.id}><span class="x-badge work"><${XIcon} name="alert" size=${16} /></span><div class="grow"><b>${au.name}: ${sig.region.toLowerCase()}</b><span class="x-small x-muted">${sig.text}</span></div><span class="x-chev"><${XIcon} name="chat" size=${18} /></span></a>`)}</div>`;
+}
+
+// Physio sets a return-to-run ladder; the athlete unlocks each stage by meeting the pass rule.
+function LadderCard({ rep }) {
+  const lad = ladderFor(rep.athleteId);
+  const [open, setOpen] = useState(false);
+  const [pick, setPick] = useState(STAGES.map((s) => s.key));
+  const [note, setNote] = useState('');
+  const [err, setErr] = useState('');
+  const start = async () => { try { await startLadder(rep.athleteId, rep.userId, STAGES.map((s) => s.key).filter((k) => pick.includes(k)), note); setOpen(false); setErr(''); toast('Ladder sent to ' + rep.athleteName + '.'); } catch (e) { setErr(e.message); } };
+  const st = lad ? ladderStatus(lad) : null;
+  return html`<div class="x-card" style="gap:12px"><div class="x-kicker">Return-to-run ladder</div>
+    ${lad ? html`<b>${st.done ? 'All stages passed' : 'On stage ' + (st.index + 1) + ' of ' + st.total + ': ' + stageByKey(st.current).name}</b>
+      <div class="x-sessions">${lad.stages.map((k, i) => html`<i class=${i < st.index ? 'on' : ''} title=${stageByKey(k).name}></i>`)}</div>
+      ${(lad.log || []).slice(-3).reverse().map((x) => html`<div class="x-small x-muted">${x.date} · ${stageByKey(x.stage).name}: ${x.pass ? 'passed' : 'not yet'} · pain ${x.painDuring} then ${x.painMorning}${x.limp ? ', limp or swelling' : ''}${x.hopLsi != null ? ' · hop ' + x.hopLsi + '%' : ''}</div>`)}` : html`<p class="x-small x-muted">After an injury, give a clear way back. Each stage unlocks only with pain 2/10 or less during and the next morning, and from strides on, a hop test with the weaker leg at 90% or more.</p>`}
+    ${open ? html`<div class="x-field"><span>Stages</span><div class="x-chips">${STAGES.map((s) => html`<button type="button" class=${'x-chip' + (pick.includes(s.key) ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(pick.includes(s.key))} onClick=${() => setPick(pick.includes(s.key) ? pick.filter((k) => k !== s.key) : pick.concat([s.key]))}>${s.name}</button>`)}</div></div>
+      <${XField} label="Note for the athlete (optional)" type="textarea" rows=${2} value=${note} onInput=${setNote} placeholder="For example: one stage every 2 to 3 days, ice after if sore" />
+      ${err ? html`<div class="x-err">${err}</div>` : null}
+      <button class="x-btn" onClick=${start}>Send ladder to ${firstName(rep.athleteName)}</button>`
+    : html`<button class="x-btn soft" onClick=${() => setOpen(true)}>${lad ? 'Start a new ladder' : 'Set a return-to-run ladder'}</button>`}
   </div>`;
 }
 
@@ -128,6 +166,7 @@ function ReportView({ id }) {
     ${rep.strengths.length ? html`<div class="x-card" style="flex-direction:row;gap:12px;align-items:center"><span class="x-badge"><${XIcon} name="up" size=${16} /></span><div style="flex:1"><b>Strengths</b><div class="x-small x-muted">${rep.strengths.map((x) => x.text || x.name).join(' · ')}</div></div></div>` : null}
     ${partners.length ? html`<p class="x-small x-muted" style="padding:0 4px">Working together with ${partners.map((x) => x.name + ' (' + ROLES[x.role] + ')').join(', ')}. You see each other's programmes.</p>` : null}
     ${shown.map((pl) => html`<${PlanSummary} key=${pl.id} pl=${pl} />`)}
+    <${LadderCard} rep=${rep} />
     <div class="x-card" style="gap:12px"><div class="x-kicker">${shown.some((x) => x.coachId === u.id) ? 'Send a new programme' : 'Your programme'}</div>
       <${XField} label="What should they do?" type="textarea" rows=${4} value=${text} onInput=${setText} placeholder="For example: calf raises every day this week, no spikes, retest in 2 weeks" />
       <${ExercisePicker} chosen=${ex} onChange=${setEx} suggest=${flagged.map((x) => AREA_TO_LIB[x.area]).filter(Boolean)} />

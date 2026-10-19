@@ -95,3 +95,31 @@ export function BodyMirror({ rows, groin }) {
       : html`<p class="x-small x-muted" style="text-align:center">Do a left and right test and your body lights up here.</p>`}
   </div>`;
 }
+
+// Pain map for the daily pulse: tap where it hurts on the front or back of the body.
+// Each region keeps its plain name, and "Other" stays a button for anything not on the figure.
+const PAIN_SPOTS = {
+  'Head or neck': [[FRONT, 0, 34], [BACK, 0, 48]], 'Shoulder': [[FRONT, -34, 66], [FRONT, 34, 66]],
+  'Elbow, wrist or hand': [[FRONT, -44, 120], [FRONT, 44, 120], [FRONT, -47, 152], [FRONT, 47, 152]],
+  'Chest or ribs': [[FRONT, 0, 88]], 'Lower back': [[BACK, 0, 126]], 'Hip or groin': [[FRONT, 0, 150]],
+  'Front of thigh': [[FRONT, -16, 178], [FRONT, 16, 178]], 'Hamstring': [[BACK, -16, 178], [BACK, 16, 178]],
+  'Knee': [[FRONT, -17, 206], [FRONT, 17, 206]], 'Calf or shin': [[BACK, -17, 228], [BACK, 17, 228], [FRONT, -18, 232], [FRONT, 18, 232]],
+  'Achilles': [[BACK, -18, 254], [BACK, 18, 254]], 'Ankle': [[FRONT, -18, 254], [FRONT, 18, 254]], 'Foot': [[FRONT, -21, 268], [FRONT, 21, 268]],
+};
+export function PainMap({ regions, chosen, onToggle }) {
+  const on = (r) => chosen.includes(r);
+  return html`<div class="sg-painmap">
+    <svg viewBox="0 0 340 312" role="group" aria-label="Tap where it hurts">
+      <defs><radialGradient id="sg-g-pain"><stop offset="0" class="sg-s0 work" /><stop offset=".55" class="sg-s1 work" /><stop offset="1" class="sg-s2 work" /></radialGradient></defs>
+      <${Figure} cx=${FRONT} /><${Figure} cx=${BACK} />
+      <text x=${FRONT} y="300" class="sg-view">FRONT</text><text x=${BACK} y="300" class="sg-view">BACK</text>
+      ${Object.keys(PAIN_SPOTS).filter((r) => regions.includes(r)).map((r) => PAIN_SPOTS[r].map(([cx, dx, y], i) => html`<g key=${r + i} class=${'sg-spot' + (on(r) ? ' on' : '')} role="button" tabindex="0" aria-pressed=${String(on(r))} aria-label=${r}
+          onClick=${() => onToggle(r)} onKeyDown=${(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(r); } }}>
+        ${on(r) ? html`<circle cx=${cx + dx} cy=${y} r="17" fill="url(#sg-g-pain)" />` : null}
+        <circle cx=${cx + dx} cy=${y} r="7" class="dot" /><circle cx=${cx + dx} cy=${y} r="12" fill="transparent" />
+      </g>`))}
+    </svg>
+    <div class="x-chips" style="justify-content:center">${chosen.length ? chosen.map((r) => html`<button type="button" class="x-chip work" style="border:0;min-height:40px" onClick=${() => onToggle(r)} aria-label=${'Remove ' + r}>${r} ×</button>`) : html`<span class="x-small x-muted">Tap the body where it hurts.</span>`}
+      ${regions.includes('Other') && !on('Other') ? html`<button type="button" class="x-chip" style="border:0;min-height:40px" onClick=${() => onToggle('Other')}>Somewhere else</button>` : null}</div>
+  </div>`;
+}

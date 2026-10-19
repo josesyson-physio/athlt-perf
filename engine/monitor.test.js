@@ -80,3 +80,13 @@ test('week starts on Monday', () => {
   assert.equal(M.weekStart('2026-10-14'), '2026-10-12');
   assert.equal(M.weekStart('2026-10-12'), '2026-10-12');
 });
+
+test('pain 4 or more in one region two days running goes to the physio', () => {
+  const r = run({ checkins: [ci(1, { pain: true, regions: ['Knee'], painScore: 4 }), ci(0, { pain: true, regions: ['Knee'], painScore: 5 })] });
+  const s = r.signals.find((x) => x.rule === 'pain_physio');
+  assert.ok(s && s.physio);
+  assert.equal(s.region, 'Knee');
+  assert.ok(!rules(run({ checkins: [ci(1, { pain: true, regions: ['Knee'], painScore: 3 }), ci(0, { pain: true, regions: ['Knee'], painScore: 5 })] })).includes('pain_physio'));
+  assert.ok(!rules(run({ checkins: [ci(2, { pain: true, regions: ['Knee'], painScore: 6 }), ci(0, { pain: true, regions: ['Knee'], painScore: 6 })] })).includes('pain_physio'));
+  assert.ok(!rules(run({ checkins: [ci(1, { pain: true, regions: ['Knee'], painScore: 6 }), ci(0, { pain: true, regions: ['Ankle'], painScore: 6 })] })).includes('pain_physio'));
+});

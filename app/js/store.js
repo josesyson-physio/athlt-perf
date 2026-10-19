@@ -2,16 +2,17 @@
 // Everything is kept in memory after load and written through on every change.
 
 const DB_NAME = 'motionplus';
-const DB_VERSION = 5;
-const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'users', 'posts', 'reactions', 'links', 'messages', 'progress'];
+const DB_VERSION = 6;
+const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'users', 'posts', 'reactions', 'links', 'messages', 'progress', 'ladders'];
 // Records that belong to one athlete: check-ins, training, weekly health (older data), signal notes,
-// focus checks (older data), free test results, reports sent to a coach, plans sent back and training sessions ticked off.
-export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'progress'];
+// focus checks (older data), free test results, reports sent to a coach, plans sent back, training sessions ticked off
+// and return-to-run ladders.
+export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'progress', 'ladders'];
 // Accounts on this device, posts in the feed, athletes' reactions, connections and chat messages.
 export const SOCIAL = ['users', 'posts', 'reactions', 'links', 'messages'];
 
 let db = null;
-const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], focus: [], results: [], reports: [], plans: [], users: [], posts: [], reactions: [], links: [], messages: [], progress: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
+const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], focus: [], results: [], reports: [], plans: [], users: [], posts: [], reactions: [], links: [], messages: [], progress: [], ladders: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
 const listeners = new Set();
 
 function openDb() {

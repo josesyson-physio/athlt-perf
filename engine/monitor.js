@@ -149,6 +149,18 @@
       }
     });
 
+    // Review, physio: pain 4/10 or more in the same region on two days in a row, the latest in the
+    // last 3 days. Sent to the athlete's physio so a niggle is seen before it becomes an injury.
+    regions.forEach((r) => {
+      const hi = last7.filter((c) => c.pain && (c.regions || []).includes(r) && isNum(num(c.painScore)) && num(c.painScore) >= R.painHigh);
+      const ds = hi.map((c) => day(c.date));
+      const pair = ds.findIndex((d, i) => i > 0 && d - ds[i - 1] === 1 && t - d < 3);
+      if (pair > 0) {
+        const a = hi[pair - 1], b = hi[pair];
+        out.push(signal('review', 'pain_physio', 'Physio check: ' + r.toLowerCase() + ' pain two days running', r + ' pain ' + num(a.painScore) + '/10 on ' + a.date + ' and ' + num(b.painScore) + '/10 on ' + b.date + '. Worth a physio look before the next hard session.', b.date, { region: r, evidence: [a.date, b.date], physio: true }));
+      }
+    });
+
     // Review: pain that is high or changes running, in the last 3 days.
     const high = checkins.filter((c) => within(c.date, 3) && c.pain && ((isNum(num(c.painScore)) && num(c.painScore) >= R.painHigh) || c.painAffectsRunning));
     if (high.length) {

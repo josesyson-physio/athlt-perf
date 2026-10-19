@@ -504,3 +504,23 @@ body[data-ui="x"] { background: var(--x-page, #F4F4F6); }
 .sg-read { gap: 6px; }
 .sg-read[aria-pressed="true"] { background: var(--x-tint-soft); color: var(--x-tint) !important; border-color: transparent; }
 @media (prefers-reduced-motion: reduce) { .sg-lap:active { transform: none; } }
+
+/* pain map */
+.sg-painmap { display: flex; flex-direction: column; gap: 8px; }
+.sg-painmap svg { width: 100%; max-width: 400px; margin: 0 auto; display: block; }
+.sg-spot { cursor: pointer; outline: none; }
+.sg-spot .dot { fill: var(--x-card); stroke: var(--x-dim); stroke-width: 1.5; stroke-dasharray: 3 2; }
+.sg-spot.on .dot { fill: var(--x-work); stroke: #fff; stroke-dasharray: none; }
+.sg-spot:focus-visible .dot { stroke: var(--x-tint); stroke-width: 3; }
+
+/* return-to-run ladder */
+.sg-ladder { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.sg-ladder li { display: flex; gap: 12px; align-items: center; padding: 10px 14px; position: relative; }
+.sg-ladder li > div { flex: 1; display: flex; flex-direction: column; }
+.sg-ladder li:not(:last-child)::after { content: ""; position: absolute; left: 31px; top: 44px; bottom: -8px; width: 2px; background: var(--x-line-2); }
+.sg-ladder li.done:not(:last-child)::after { background: var(--x-tint); }
+.sg-rung { width: 36px; height: 36px; border-radius: 999px; display: flex; align-items: center; justify-content: center; font-weight: 750; background: var(--x-card-2); color: var(--x-dim); box-shadow: inset 0 0 0 1.5px var(--x-line-2); flex-shrink: 0; z-index: 1; }
+.sg-ladder li.done .sg-rung { background: var(--x-tint); color: #fff; box-shadow: none; }
+.sg-ladder li.now { background: var(--x-card); border-radius: 18px; box-shadow: var(--x-shadow), inset 0 0 0 1.5px var(--x-tint); }
+.sg-ladder li.now .sg-rung { background: var(--x-tint-soft); color: var(--x-tint); box-shadow: inset 0 0 0 1.5px var(--x-tint); }
+.sg-ladder li.locked { opacity: .6; }
