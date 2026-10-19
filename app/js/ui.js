@@ -12,6 +12,8 @@ export function fmtDate(iso) {
 }
 export const initials = (name) => (name || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join('');
 export const go = (path) => { location.hash = '#' + path; };
+// A short vibration to confirm a win, on phones that support it.
+export const buzz = (pattern) => { try { navigator.vibrate && navigator.vibrate(pattern || 18); } catch (e) { /* not supported */ } };
 export const fmt = (v, dp) => (v == null || v === '' ? '—' : typeof v === 'number' ? v.toFixed(dp == null ? (Number.isInteger(v) ? 0 : 1) : dp) : String(v));
 
 // ---------- toast ----------

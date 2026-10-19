@@ -1,6 +1,6 @@
 // The athlete app: Home, Feed, Train (programme, tests, Mirror, progress, library), Chat and Me.
 import { html, useState } from '../vendor/preact-htm.js';
-import { go, toast, has, downloadFile } from '../ui.js';
+import { go, toast, has, downloadFile, buzz } from '../ui.js';
 import { XIcon, XSeg, XScale, XField, firstName, initial, ago } from '../xui.js';
 import * as store from '../store.js';
 import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
@@ -8,7 +8,7 @@ import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, s
 import { prosOf, unreadFor } from '../connect.js';
 import { Feed, PostPage } from './feed.js';
 import { ProProfile, Find, MyPros, ChatList, ChatThread } from './people.js';
-import { MirrorBoard, ExerciseRows, Spark } from './parts.js';
+import { MirrorBoard, BodyMirror, ExerciseRows, Spark } from './parts.js';
 import { Logo, Wordmark } from '../logo.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
@@ -126,7 +126,7 @@ function Today() {
     : html`<div class="x-card"><div class="x-kicker">Daily pulse</div><h2>How is your body today?</h2><p class="x-muted">Six quick taps. Keeps your streak alive.</p><a class="x-btn" href="#/pulse" style="margin-top:8px">Start · 30 sec</a></div>`}
     ${plan ? html`<${ProgrammeCard} plan=${plan} />` : null}
     <a class="x-card" href="#/mirror" style="flex-direction:row;align-items:center;gap:16px;color:inherit">
-      <div style="display:flex;flex-direction:column;gap:5px;width:86px" aria-hidden="true">${(rows.length ? rows.slice().sort((p, q) => ({ work: 0, watch: 1, even: 2 })[p.status] - ({ work: 0, watch: 1, even: 2 })[q.status]).slice(0, 3) : [{}, {}, {}]).map((x) => html`<div style="display:flex;gap:3px;justify-content:center"><span style=${'height:8px;border-radius:4px;width:' + Math.round((x.pctL || 90) * 0.38) + 'px;background:' + (x.weak === 'left' ? statusColor(x.status) : '#DCDCE2')}></span><span style=${'height:8px;border-radius:4px;width:' + Math.round((x.pctR || 90) * 0.38) + 'px;background:' + (x.weak === 'right' ? statusColor(x.status) : '#DCDCE2')}></span></div>`)}</div>
+      <div style="display:flex;flex-direction:column;gap:5px;width:86px" aria-hidden="true">${(rows.length ? rows.slice().sort((p, q) => ({ work: 0, watch: 1, even: 2 })[p.status] - ({ work: 0, watch: 1, even: 2 })[q.status]).slice(0, 3) : [{}, {}, {}]).map((x) => html`<div style="display:flex;gap:3px;justify-content:center"><span style=${'height:8px;border-radius:4px;width:' + Math.round((x.pctL || 90) * 0.38) + 'px;background:' + (x.weak === 'left' ? statusColor(x.status) : 'var(--x-even)')}></span><span style=${'height:8px;border-radius:4px;width:' + Math.round((x.pctR || 90) * 0.38) + 'px;background:' + (x.weak === 'right' ? statusColor(x.status) : 'var(--x-even)')}></span></div>`)}</div>
       <div style="flex:1"><b style="font-size:17px">Mirror</b><div class="x-small x-muted">${!rows.length ? 'Do a test to see your left and right' : toWork ? toWork + (toWork > 1 ? ' areas' : ' area') + ' to work on' : 'Left and right look even'}</div></div>
       <span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
     <a class="x-card dark" href=${'#/tests/' + nx.t.key} style="gap:10px;color:#fff">
@@ -137,7 +137,7 @@ function Today() {
     ${!team.length ? html`<${FindCard} />` : null}
   </div>`;
 }
-const statusColor = (s) => (s === 'work' ? '#F2385A' : s === 'watch' ? '#F59E0B' : '#DCDCE2');
+const statusColor = (s) => (s === 'work' ? 'var(--x-work)' : s === 'watch' ? 'var(--x-watch)' : 'var(--x-even)');
 
 function FindCard() {
   return html`<a class="x-card tint" href="#/find" style="flex-direction:row;align-items:center;gap:14px;color:#fff"><span class="x-badge" style="background:rgba(255,255,255,.18);color:#fff"><${XIcon} name="userplus" /></span><div style="flex:1"><b style="font-size:17px">Get a coach or physio</b><div class="x-small" style="opacity:.85">Read their posts, connect, and send them your Mirror.</div></div><span style="opacity:.8"><${XIcon} name="next" size=${18} /></span></a>`;
@@ -149,7 +149,7 @@ function ProgrammeCard({ plan }) {
   return html`<div class="x-card" style="gap:12px">
     <a href="#/plans" style="display:flex;gap:12px;align-items:center;color:inherit"><span class="x-avatar soft">${initial(plan.coachName)}</span><div style="flex:1;min-width:0"><div class="x-kicker">${st.finished ? 'Programme done' : 'Week ' + st.week + ' of ' + st.weeks}</div><b>Programme from ${plan.coachName}</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
     <div class="x-sessions" aria-label=${st.thisWeek + ' of ' + st.perWeek + ' sessions this week'}>${Array.from({ length: st.perWeek }, (_, i) => html`<i class=${i < st.thisWeek ? 'on' : ''}></i>`)}<span class="x-small x-muted">${st.thisWeek}/${st.perWeek} this week · ${st.done}/${st.total} total</span></div>
-    <button class=${'x-btn' + (st.today ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
+    <button class=${'x-btn' + (st.today ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); if (on) buzz([18, 60, 28]); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
   </div>`;
 }
 
@@ -373,7 +373,9 @@ function Mirror() {
   return html`<div class="x-page">
     <div class="x-topbar x-noprint"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
     <div class="x-head"><div><div class="x-over">Left and right, head to toe</div><h1 class="x-title">Mirror</h1></div><button class="x-link x-noprint" onClick=${() => window.print()}><${XIcon} name="print" size=${20} />PDF</button></div>
-    <p class="x-sub" style="padding:0 4px">The shorter side is where you're losing power. Bars show each side as a share of your stronger side.</p>
+    <p class="x-sub" style="padding:0 4px">A glow shows where one side is weaker. That's where you're losing power.</p>
+    <${BodyMirror} rows=${rows} groin=${sj ? sj.status : null} />
+    <div class="x-section">The numbers</div>
     <${MirrorBoard} rows=${rows} />
     ${flagged.length || (sj && sj.status === 'work') ? html`<div class="x-list">${flagged.map((x) => html`<a class="x-row" href=${'#/library?area=' + x.area}><span class=${'x-badge ' + x.status}><${XIcon} name="down" size=${16} /></span><div class="grow"><b>${x.text}</b><span class="x-small x-muted">${T.byKey(x.test).name} · ${ago(x.date + 'T12:00:00')} · exercises</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`)}
       ${sj && sj.status === 'work' ? html`<a class="x-row" href="#/library?area=groin"><span class="x-badge work"><${XIcon} name="alert" size=${16} /></span><div class="grow"><b>${sj.text}</b><span class="x-small x-muted">Groin squeeze · show your physio</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>` : null}</div>` : null}

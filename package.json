@@ -7,5 +7,8 @@
     "test": "node --test \"engine/*.test.js\" \"app/js/*.test.mjs\"",
     "build": "node scripts/build.js",
     "serve": "npm run build && npx --yes http-server@14.1.1 dist -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.1"
   }
 }
