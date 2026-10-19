@@ -5,7 +5,7 @@
 import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { XIcon } from '../xui.js';
 import { buzz } from '../ui.js';
-import { speak, hush, beep, keepAwake, canSpeak, isVoiceOn, setVoice } from '../voice.js';
+import { speak, hush, beep, keepAwake, canSpeak, isVoiceOn, setVoice, cue, warmCues } from '../voice.js';
 
 const HI = 1046, LO = 523, GO = 1318;
 const fmtClock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -23,7 +23,7 @@ function useTick(on, fn, every) {
   }, [on]);
 }
 // Stop talking when the screen closes.
-function useHushOnLeave() { useEffect(() => () => { hush(); keepAwake(false); }, []); }
+function useHushOnLeave() { useEffect(() => { warmCues(); return () => { hush(); keepAwake(false); }; }, []); }
 
 export function ReadAloud({ text, label }) {
   const [on, setOn] = useState(false);
@@ -48,8 +48,9 @@ export function VoiceSwitch() {
 // 3, 2, 1, go with beeps and voice. Resolves when "go" sounds.
 async function countIn(intro) {
   if (intro) { speak(intro); await wait(Math.min(3500, 600 + intro.length * 55)); }
-  for (const n of [3, 2, 1]) { beep(LO, 120); speak(String(n)); await wait(1000); }
-  beep(GO, 380); speak('Go'); buzz(30);
+  await cue('ready'); await wait(500);
+  for (const n of [3, 2, 1]) { beep(LO, 120); cue(n); await wait(1000); }
+  beep(GO, 380); cue('go'); buzz(30);
 }
 
 function Big({ children, sub }) {
@@ -64,10 +65,10 @@ export function HoldTimer({ sideLabel, onResult }) {
   useTick(st === 'run', () => {
     const now = Date.now() - t0.current; setMs(now);
     const s10 = Math.floor(now / 10000);
-    if (s10 > said.current) { said.current = s10; beep(HI, 90); speak(s10 * 10 + ' seconds'); }
+    if (s10 > said.current) { said.current = s10; beep(HI, 90); if (s10 % 3 === 0) cue('onemore'); }
   });
   const start = async () => { setSt('count'); setMs(0); said.current = 0; await countIn((sideLabel ? sideLabel + ' side. ' : '') + 'Get into position.'); t0.current = Date.now(); setSt('run'); };
-  const stop = () => { const s = Math.round((Date.now() - t0.current) / 1000); setSt('done'); beep(LO, 300); speak('Stop. ' + s + ' seconds.'); buzz([18, 60, 28]); onResult(s); };
+  const stop = () => { const s = Math.round((Date.now() - t0.current) / 1000); setSt('done'); beep(LO, 300); cue('stop'); buzz([18, 60, 28]); onResult(s); };
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Hold timer</div>
     <${Big} sub=${st === 'run' ? 'Tap Stop the moment your hips drop.' : st === 'done' ? 'Saved into the result below.' : 'Counts you in and calls out every 10 seconds.'}>${fmtSec(ms)}<small>s</small><//>
@@ -82,8 +83,8 @@ export function SqueezeTimer() {
   useHushOnLeave();
   const start = async () => {
     setLeft(5); speak('Fist between your knees. Squeeze hard.'); await wait(2400); beep(GO, 250); buzz(30);
-    for (let n = 5; n > 0; n--) { setLeft(n); speak(String(n)); await wait(1000); }
-    setLeft(0); beep(LO, 400); speak('Relax. Now rate any groin pain from 0 to 10.'); buzz([18, 60, 28]);
+    for (let n = 5; n > 0; n--) { setLeft(n); if (n <= 3) cue(n); else beep(LO, 90); await wait(1000); }
+    setLeft(0); beep(LO, 400); cue('stop'); buzz([18, 60, 28]);
   };
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="timer" size=${16} /> 5-second squeeze</div>
@@ -101,11 +102,11 @@ export function Metronome({ sideLabel, onResult }) {
     const half = Math.floor((Date.now() - t0.current) / 1000);
     if (half === last.current) return;
     last.current = half;
-    if (half % 2 === 0) { beep(HI, 110); setPhase('Up'); if (half > 0) { const reps = half / 2; setN(reps); speak(String(reps)); } }
+    if (half % 2 === 0) { beep(HI, 110); setPhase('Up'); if (half > 0) { const reps = half / 2; setN(reps); if (reps % 10 === 0) cue('onemore'); } }
     else { beep(LO, 110); setPhase('Down'); }
   }, 50);
   const start = async () => { setN(0); setPhase(''); last.current = -1; await countIn((sideLabel ? sideLabel + ' leg. ' : '') + 'Up on the high beep, down on the low beep.'); t0.current = Date.now(); setOn(true); };
-  const stop = () => { setOn(false); setPhase(''); beep(LO, 300); speak('Stop. ' + n + ' raises.'); buzz([18, 60, 28]); onResult(n); };
+  const stop = () => { setOn(false); setPhase(''); beep(LO, 300); cue('stop'); buzz([18, 60, 28]); onResult(n); };
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Pace and count</div>
     <${Big} sub=${on ? 'Tap Stop when you can no longer reach full height.' : 'One second up, one second down. It counts for you.'}>${n}<small>${on ? ' · ' + phase : ' raises'}</small><//>
@@ -124,13 +125,13 @@ export function LapRun({ onResult }) {
   useTick(st === 'run', () => {
     const l = RUN - (Date.now() - t0.current); setLeft(l);
     const m = Math.ceil(l / 60000);
-    if (m < mins.current && l > 0) { mins.current = m; beep(HI, 120); speak(m === 1 ? 'One minute left. Push.' : m + ' minutes left.'); }
+    if (m < mins.current && l > 0) { mins.current = m; beep(HI, 120); if (m === 1) cue('minute'); else if (m === 6) cue('halfway'); }
     const s = Math.ceil(l / 1000);
-    if (s <= 10 && s > 0 && s !== tens.current) { tens.current = s; beep(s <= 3 ? HI : LO, 90); }
-    if (l <= 0) { setSt('done'); beep(GO, 600); speak('Stop. Stand still where you are.'); buzz([30, 80, 30, 80, 60]); }
+    if (s <= 10 && s > 0 && s !== tens.current) { tens.current = s; if (s === 10) cue('ten'); else if (s <= 3) cue(s); else beep(LO, 90); }
+    if (l <= 0) { setSt('done'); beep(GO, 600); cue('stop'); buzz([30, 80, 30, 80, 60]); }
   }, 200);
   const start = async () => { setSt('count'); setLaps(0); setLeft(RUN); mins.current = 12; tens.current = -1; await countIn('Twelve minute run. Tap the big button each time you pass the start line.'); t0.current = Date.now(); setSt('run'); };
-  const tapLap = () => { const n = laps + 1; setLaps(n); beep(HI, 80); buzz(25); speak('Lap ' + n + '. ' + n * lap + ' metres.'); };
+  const tapLap = () => { const n = laps + 1; setLaps(n); beep(HI, 80); buzz(25); cue('lap'); };
   const total = laps * lap + (Number(extra) || 0);
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="flag" size=${16} /> Lap tracker</div>
@@ -153,10 +154,10 @@ export function SprintTimer({ onResult }) {
   useHushOnLeave();
   useTick(st === 'run', () => setMs(Date.now() - t0.current), 50);
   const start = async () => {
-    setSt('set'); setMs(0); speak('On your marks.'); await wait(2600); speak('Set.'); await wait(1200 + Math.random() * 1300);
-    beep(GO, 300, 0.5); buzz(30); t0.current = Date.now(); setSt('run');
+    setSt('set'); setMs(0); await cue('ready'); await wait(1800 + Math.random() * 1500);
+    beep(GO, 300, 0.5); buzz(30); t0.current = Date.now(); setSt('run'); cue('go');
   };
-  const stop = () => { const s = Math.round((Date.now() - t0.current) / 10) / 100; setMs(s * 1000); setSt('done'); beep(LO, 250); speak(s.toFixed(2) + ' seconds.'); onResult(s); };
+  const stop = () => { const s = Math.round((Date.now() - t0.current) / 10) / 100; setMs(s * 1000); setSt('done'); beep(LO, 250); cue('stop'); onResult(s); };
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Phone start</div>
     <${Big} sub=${st === 'run' ? 'Friend: tap Stop as the chest crosses the line.' : 'The beep comes at a random moment, so nobody can guess it. Phone-timed.'}>${(ms / 1000).toFixed(2)}<small>s</small><//>
@@ -184,7 +185,7 @@ export function ReactionPad({ onResult }) {
       const t = Math.round(performance.now() - go.current); const next = times.concat(t); setTimes(next); buzz(20);
       if (next.length >= TRIES) {
         const mid = next.slice().sort((a, b) => a - b)[Math.floor(TRIES / 2)];
-        setSt('done'); setMsg('Your reaction: ' + mid + ' ms (the middle of 5 tries).'); speak('Done. ' + mid + ' milliseconds.'); onResult(mid);
+        setSt('done'); setMsg('Your reaction: ' + mid + ' ms (the middle of 5 tries).'); cue('stop'); onResult(mid);
       } else { setSt('shown'); setMsg(t + ' ms. Tap for try ' + (next.length + 1) + ' of ' + TRIES + '.'); }
     }
     return undefined;
@@ -221,12 +222,12 @@ export function SessionCoach({ items, title, onFinish, backHref, intro, doneText
   useEffect(() => { keepAwake(true); return () => keepAwake(false); }, []);
   const x = items[i];
   const read = (n) => { const y = items[n]; if (y) speak('Exercise ' + (n + 1) + ' of ' + items.length + '. ' + y.name + '. ' + y.dose + '. ' + y.steps.join(' ')); };
-  const goTo = (n) => { setRest(0); if (n >= items.length) { finish(); return; } setI(n); read(n); };
-  const finish = async () => { setDone(true); setRest(0); beep(GO, 500); buzz([18, 60, 28, 60, 40]); speak(doneText || 'Session done. Great work. It has been ticked off.'); await onFinish(); };
+  const goTo = (n) => { setRest(0); if (n >= items.length) { finish(); return; } setI(n); if (n > 0) cue('next').then(() => read(n)); else cue('ready').then(() => read(n)); };
+  const finish = async () => { setDone(true); setRest(0); beep(GO, 500); buzz([18, 60, 28, 60, 40]); cue(doneText ? 'warmupdone' : 'sessiondone'); await onFinish(); };
   useTick(rest > 0, () => {
     const l = Math.ceil((until.current - Date.now()) / 1000);
-    if (l !== rest) { setRest(Math.max(0, l)); if (l === 10) speak('10 seconds.'); if (l <= 3 && l > 0) beep(LO, 90); }
-    if (l <= 0) { beep(GO, 300); buzz(30); speak('Rest over.'); setRest(0); }
+    if (l !== rest) { setRest(Math.max(0, l)); if (l <= 3 && l > 0) cue(l); }
+    if (l <= 0) { beep(GO, 300); buzz(30); cue('restover'); setRest(0); }
   }, 200);
   const startRest = (sec) => { until.current = Date.now() + sec * 1000; setRest(sec); speak('Rest ' + sec + ' seconds.'); };
   if (done) return html`<div class="x-page plain"><div style="padding:48px 4px 8px;display:flex;flex-direction:column;gap:10px"><span class="x-badge" style="width:56px;height:56px;border-radius:18px"><${XIcon} name="star" size=${28} /></span><h1 class="x-title">${doneText ? 'Done' : 'Session done'}</h1><p class="x-sub">${doneText || 'Ticked off in your programme. Rest well.'}</p></div><a class="x-btn" href=${backHref}>Back</a></div>`;
