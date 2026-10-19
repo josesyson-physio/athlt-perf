@@ -9,6 +9,7 @@ import { prosOf, unreadFor } from '../connect.js';
 import { Feed, PostPage } from './feed.js';
 import { ProProfile, Find, MyPros, ChatList, ChatThread } from './people.js';
 import { MirrorBoard, ExerciseRows, Spark } from './parts.js';
+import { Logo, Wordmark } from '../logo.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
 
@@ -116,7 +117,7 @@ function Today() {
   const n = streak(checkins);
   const date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   return html`<div class="x-page">
-    <div class="x-brand" style="padding:0 4px"><b>Sportgram</b><span>a MotionPlus product</span></div>
+    <div class="sg-lock" style="padding:0 4px"><${Logo} size=${30} /><${Wordmark} size=${22} /></div>
     <div class="x-head"><div><div class="x-over">${date}</div><h1 class="x-title">Hey ${firstName(u.name)}</h1></div><a class="x-avatar" href="#/me" aria-label="Your profile">${initial(u.name)}</a></div>
     ${urgent ? html`<div class="x-urgent" role="alert"><h1>Stop. Don't train today.</h1><p>You reported: ${urgent.title.toLowerCase()}. Tell your coach and see a doctor today. Chest pain or trouble breathing right now: call 112.</p></div>` : null}
     <div class="x-card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${n ? n + '-day streak' : 'Start your streak'}</b><span class="x-small x-dim">Best ${Math.max(n, bestStreak(checkins))}</span></div>
