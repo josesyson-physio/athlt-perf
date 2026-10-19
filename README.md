@@ -1,9 +1,8 @@
-# MotionPlus: find your weak side, close the gap
+# Sportgram, a MotionPlus product
 
-A free training app for athletes, built first for village and low-income athletes who could never pay for lab
-testing. Athletes do simple tests with basic equipment anyone can afford (a wall, a step, a tape measure, a
-phone stopwatch), and the **Mirror** shows where the left side lags the right. Coaches, trainers and physios
-get the athlete's report and send back a plan; athletes see their posts in a feed and star or react.
+A free sports app for athletes, built first for village and low-income athletes who could never pay for lab
+testing. Athletes find their weak side with simple tests and basic equipment anyone can afford, train with a
+coach, trainer or physio they choose, and learn from a feed of stories, slides, videos and insights.
 
 ## Use the app
 Once GitHub Pages is on (Settings → Pages → Source: GitHub Actions), the app is at
@@ -33,15 +32,20 @@ After that it works with no signal. Results stay on the phone; use **Download ba
 Tests are ranked in accuracy tiers: A direct gas analysis (lab or portable analyser, entered as Measured),
 B max-effort field tests, C submaximal HR tests, D no-exercise. Use the highest tier the athlete can safely do.
 
-## Two sides of the app
-- **Athletes** (`app/js/pages/athlete.js`): Today (streak, daily pulse, Mirror, beat your ghost), Tests (10 free
-  field tests in `engine/tests.js`, each cut-off from a published study), Mirror (left vs right per body area,
-  send to coach, save as PDF), Feed (coach posts; only athletes can star or react), Library (26 basic exercises).
-- **Coaches, trainers and physios** (`app/js/pages/coach.js`): Inbox of athlete reports with a plan composer,
-  Post (insights, documents and training sessions to the team feed), Team (share a 6-character team code),
-  Library, and Tools (the full assessment, VO2 and Signals screens).
-- Accounts are kept on this phone for now (`app/js/session.js`); online accounts across phones need a server.
-- **Try the demo** on the welcome screen loads invented athletes and a physio (password `demo1234`).
+## How it works
+- **Athletes** (`app/js/pages/athlete.js`): Home (streak, daily pulse, this week's programme), Feed (a swipe
+  feed plus Insights and Saved; only athletes star or react), Train (10 free tests in `engine/tests.js`, the
+  Mirror, progress charts, programmes, a 26-exercise library), Chat, and Me (their coaches and physios).
+- **Coaches, trainers and physios** (`app/js/pages/coach.js`): Inbox of Mirror reports with a programme
+  composer (weeks and sessions per week), Athletes (connection requests and approvals), Post (comic
+  stories, slides or a PDF, videos, photos, insights, training, documents), Chat, and Me (profile and the
+  assessment tools).
+- **Connecting** (`app/js/connect.js`): an athlete finds a pro by their posts and profile and taps Connect;
+  the pro accepts. A team code connects straight away. When an athlete has two pros, each approves the
+  other, then they see each other's programmes and can chat about that athlete.
+- Accounts, posts and chats are kept on this phone for now; online accounts across phones need Supabase.
+- **Try the demo** on the welcome screen loads invented athletes, a physio, a coach and a trainer
+  (password `demo1234`).
 
 ## Signals: problem detection
 The daily pulse (pain and where, tiredness, soreness, sleep, illness, 3 urgent questions) feeds **Signals**

@@ -5,17 +5,17 @@ import { XIcon, XField, XSeg } from '../xui.js';
 import { signUp, signIn, signupErrors, ROLES } from '../session.js';
 import { loadDemo } from '../demo.js';
 
-const Mark = () => html`<div class="x-mark" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M6 8h4M4 12h6M7 16h3M14 8h4M14 12h6M14 16h3"/></svg></div>`;
+const Mark = () => html`<div class="x-mark" style="background:linear-gradient(140deg,#5B3CF5,#FF2E88)" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M6 8h4M4 12h6M7 16h3M14 8h4M14 12h6M14 16h3"/></svg></div>`;
 
 export function Welcome() {
   const [busy, setBusy] = useState(false);
   return html`<div class="x-page plain">
-    <div class="x-hero"><${Mark} />
-      <h1>Find what's holding you back.</h1>
-      <p class="x-sub" style="font-size:17px">Free tests with basic equipment, a daily pulse, and your coach in your pocket.</p>
+    <div class="x-hero"><div style="display:flex;align-items:center;gap:12px"><${Mark} /><div class="x-brand" style="flex-direction:column;gap:0"><b style="font-size:28px">Sportgram</b><span>a MotionPlus product</span></div></div>
+      <h1>Find your weak side. Fix it. Get seen.</h1>
+      <p class="x-sub" style="font-size:17px">Free tests with basic equipment, coaches and physios who answer, and a feed that makes you better.</p>
     </div>
-    <a class="x-choice" href="#/join/athlete"><span class="x-badge"><${XIcon} name="run" /></span><div style="flex:1"><b>I'm an athlete</b><span class="x-muted x-small">Track your body, beat your ghost, get plans.</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
-    <a class="x-choice" href="#/join/coach"><span class="x-badge"><${XIcon} name="team" /></span><div style="flex:1"><b>I'm a coach, trainer or physio</b><span class="x-muted x-small">Read reports, send plans, post to your team.</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+    <a class="x-choice" href="#/join/athlete"><span class="x-badge"><${XIcon} name="run" /></span><div style="flex:1"><b>I'm an athlete</b><span class="x-muted x-small">Test, train, chat with your coach and physio.</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+    <a class="x-choice" href="#/join/coach"><span class="x-badge"><${XIcon} name="team" /></span><div style="flex:1"><b>I'm a coach, trainer or physio</b><span class="x-muted x-small">Post stories and videos, guide athletes, prescribe.</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
     <a class="x-btn ghost" href="#/signin">I already have an account</a>
     <button class="x-btn soft" disabled=${busy} onClick=${async () => { setBusy(true); await loadDemo(); go('/'); }}>${busy ? 'Setting up the demo…' : 'Try the demo'}</button>
     <p class="x-small x-dim" style="text-align:center;padding:4px 8px">Accounts are kept on this phone for now. Online sign-in across phones is coming next.</p>
@@ -26,7 +26,7 @@ const EVENTS = ['', 'Sprints (100 to 400 m)', 'Middle distance (800 to 1500 m)',
 
 export function SignUp({ role }) {
   const athlete = role === 'athlete';
-  const [f, setF] = useState({ role: athlete ? 'athlete' : 'coach', name: '', email: '', password: '', birthYear: '', sex: '', event: '', teamCode: '' });
+  const [f, setF] = useState({ role: athlete ? 'athlete' : 'coach', name: '', email: '', password: '', birthYear: '', sex: '', event: '', teamCode: '', speciality: '', place: '' });
   const [errs, setErrs] = useState([]);
   const set = (k) => (v) => setF(Object.assign({}, f, { [k]: v }));
   const submit = async (e) => {
@@ -45,6 +45,8 @@ export function SignUp({ role }) {
       <${XField} label="Full name" value=${f.name} onInput=${set('name')} autocomplete="name" />
       <${XField} label="Email" type="email" value=${f.email} onInput=${set('email')} autocomplete="email" inputmode="email" />
       <${XField} label="Password" type="password" value=${f.password} onInput=${set('password')} autocomplete="new-password" />
+      ${!athlete ? html`<${XField} label="Speciality (optional)" value=${f.speciality} onInput=${set('speciality')} placeholder="For example: sprints, knee injuries" />
+      <${XField} label="Place (optional)" value=${f.place} onInput=${set('place')} placeholder="Town or district" />` : null}
     </div>
     ${athlete ? html`<div class="x-card" style="gap:14px">
       <${XField} label="Birth year" type="number" inputmode="numeric" value=${f.birthYear} onInput=${set('birthYear')} placeholder="2008" />
@@ -54,7 +56,7 @@ export function SignUp({ role }) {
     </div>` : null}
     ${errs.length ? html`<div class="x-err" role="alert">Please add ${errs.join(', ')}.</div>` : null}
     <button class="x-btn" type="submit">Create account</button>
-    <p class="x-small x-dim" style="text-align:center">${athlete ? 'If you are under 18, show this app to a parent or guardian before you start.' : 'You will get a team code to give your athletes.'}</p>
+    <p class="x-small x-dim" style="text-align:center">${athlete ? 'If you are under 18, show this app to a parent or guardian before you start.' : 'Athletes find you through your posts and profile, or your team code.'}</p>
   </form>`;
 }
 
