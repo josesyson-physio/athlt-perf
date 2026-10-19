@@ -1,0 +1,7 @@
+Fonts in this folder are used under the SIL Open Font License, Version 1.1.
+https://openfontlicense.org
+
+plus-jakarta-sans-latin.woff2  Plus Jakarta Sans, Copyright 2020 The Plus Jakarta Sans Project Authors (https://github.com/tokotype/PlusJakartaSans)
+bangers-latin.woff2            Bangers, Copyright 2010 Vernon Adams (vern@newtypography.co.uk)
+
+Both are latin subsets of the original files. They are not sold on their own.

@@ -1,3 +1,7 @@
+/* Fonts are part of the app, so text looks right offline and nothing waits on another site. */
+@font-face { font-family: "Plus Jakarta Sans"; font-style: normal; font-weight: 400 800; font-display: swap; src: url(fonts/plus-jakarta-sans-latin.woff2) format("woff2"); }
+@font-face { font-family: "Bangers"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/bangers-latin.woff2) format("woff2"); }
+
 /* MotionPlus coach tools: light, matching the athlete app (athlete.css). One violet tint.
    Layout: sidebar + sticky top bar on desktop; bottom tab bar on tablet and phone.
    Token names are kept from the first version (--teal is the main tint). */
@@ -27,7 +31,7 @@
   --r: 18px;
   --r-sm: 12px;
   --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --mono: ui-monospace, "SFMono-Regular", "Roboto Mono", Menlo, monospace;
   color-scheme: light;
 }
 * { box-sizing: border-box; }

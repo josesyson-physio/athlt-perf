@@ -375,3 +375,10 @@ body[data-ui="x"] { background: #F4F4F6; }
   .sg-logo.anim *, .sg-word.anim { animation: none !important; }
   .sg-splash { animation-delay: .6s; }
 }
+
+/* Page changes: a short fade and rise, like a native app. Off when the phone asks for reduced motion. */
+::view-transition-old(root) { animation: sg-vt-out .16s ease-in both; }
+::view-transition-new(root) { animation: sg-vt-in .26s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes sg-vt-out { to { opacity: 0; } }
+@keyframes sg-vt-in { from { opacity: 0; transform: translateY(10px); } }
+@media (prefers-reduced-motion: reduce) { ::view-transition-old(root), ::view-transition-new(root) { animation: none; } }

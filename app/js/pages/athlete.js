@@ -1,6 +1,6 @@
 // The athlete app: Home, Feed, Train (programme, tests, Mirror, progress, library), Chat and Me.
 import { html, useState } from '../vendor/preact-htm.js';
-import { go, toast, has, downloadFile } from '../ui.js';
+import { go, toast, has, downloadFile, buzz } from '../ui.js';
 import { XIcon, XSeg, XScale, XField, firstName, initial, ago } from '../xui.js';
 import * as store from '../store.js';
 import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
@@ -149,7 +149,7 @@ function ProgrammeCard({ plan }) {
   return html`<div class="x-card" style="gap:12px">
     <a href="#/plans" style="display:flex;gap:12px;align-items:center;color:inherit"><span class="x-avatar soft">${initial(plan.coachName)}</span><div style="flex:1;min-width:0"><div class="x-kicker">${st.finished ? 'Programme done' : 'Week ' + st.week + ' of ' + st.weeks}</div><b>Programme from ${plan.coachName}</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
     <div class="x-sessions" aria-label=${st.thisWeek + ' of ' + st.perWeek + ' sessions this week'}>${Array.from({ length: st.perWeek }, (_, i) => html`<i class=${i < st.thisWeek ? 'on' : ''}></i>`)}<span class="x-small x-muted">${st.thisWeek}/${st.perWeek} this week · ${st.done}/${st.total} total</span></div>
-    <button class=${'x-btn' + (st.today ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
+    <button class=${'x-btn' + (st.today ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); if (on) buzz([18, 60, 28]); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
   </div>`;
 }
 
