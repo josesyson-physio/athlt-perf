@@ -18,6 +18,7 @@ import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../li
 import { today, evaluateAthlete } from '../monitor.js';
 import { ReadAloud, TestTool, VoiceSwitch, VoiceRow, SessionCoach } from './tools.js';
 import { isLarge, setLargeText } from '../access.js';
+import { cue } from '../voice.js';
 
 const T = globalThis.MotionPlusTests;
 const M = globalThis.MotionPlusMonitor;
@@ -345,6 +346,8 @@ function TestRun({ testKey }) {
     if (er.length) return;
     const rec = await store.saveRecord('results', Object.assign({ id: store.newId('TR'), athleteId: a.id, test: t.key, date: today(), version: T.VERSION }, entry));
     setSaved(rec);
+    const g0 = g && (t.sides ? ['left', 'right'].some((s) => g[s] != null && rec[s] > g[s]) : (t.lowerBetter ? rec.value < g.value : rec.value > g.value));
+    if (g0) cue('ghost');
   };
   if (saved) {
     const j = T.judge(t.key, saved);
@@ -480,7 +483,7 @@ function Ladder() {
     if (f.painDuring == null || f.painMorning == null || f.limp == null) { setRes({ pass: false, reasons: ['Answer all three questions.'], unsaved: true }); return; }
     await logLadder(lad, { stage: stage.key, painDuring: f.painDuring, painMorning: f.painMorning, limp: f.limp, hopLsi: lsi, pass: j.pass });
     setRes(j); setF({ painDuring: null, painMorning: null, limp: null });
-    if (j.pass) { buzz([18, 60, 28, 60, 40]); toast('Stage passed. Next one unlocked.'); }
+    if (j.pass) { buzz([18, 60, 28, 60, 40]); cue('stage'); toast('Stage passed. Next one unlocked.'); }
   };
   return html`<div class="x-page">
     <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>

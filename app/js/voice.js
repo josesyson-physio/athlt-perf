@@ -42,3 +42,34 @@ export async function keepAwake(on) {
     else if (!on && lock) { await lock.release(); lock = null; }
   } catch (e) { /* not allowed or not supported */ }
 }
+
+// Coach cues recorded in jose's own voice (ElevenLabs clone), short and high energy.
+// Each plays from the app's files, so it works offline; if a clip can't play, the phone voice says the words.
+export const CUES = {
+  ready: 'Get ready.', 3: 'Three.', 2: 'Two.', 1: 'One.', go: 'Go!', lap: 'Lap! Keep going!', halfway: 'Halfway! Stay strong!',
+  minute: 'One minute left. Push!', ten: 'Ten seconds! Hold it!', onemore: 'Come on! One more!', stop: "Stop! That's it!",
+  restover: "Rest over. Let's go!", next: "Next exercise. Let's go!", sessiondone: 'Session done! You showed up today. Proud of you!',
+  ghost: 'You beat your ghost! New best!', warmupdone: "Warm-up done. You're ready. Go fly!", stage: 'Stage passed! Next level unlocked!',
+};
+const clips = {};
+let playing = null;
+const clip = (name) => { if (!clips[name]) { clips[name] = new Audio('audio/coach/' + name + '.mp3'); clips[name].preload = 'auto'; } return clips[name]; };
+export function warmCues(names) { (names || Object.keys(CUES)).forEach((n) => clip(String(n)).load()); }
+
+// Plays a cue and resolves when it ends (or straight away when the voice coach is off).
+export function cue(name) {
+  return new Promise((resolve) => {
+    if (!voiceOn()) return resolve();
+    const a = clip(String(name));
+    if (playing && playing !== a) { playing.pause(); }
+    if (canSpeak()) window.speechSynthesis.cancel();
+    playing = a;
+    let done = false;
+    const end = () => { if (!done) { done = true; resolve(); } };
+    a.onended = end;
+    try { a.currentTime = 0; } catch (e) { /* not loaded yet */ }
+    const p = a.play();
+    if (p && p.catch) p.catch(() => { speak(CUES[name]); setTimeout(end, 900); });
+    setTimeout(end, 6000);
+  });
+}
