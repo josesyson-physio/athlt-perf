@@ -2,16 +2,16 @@
 // Everything is kept in memory after load and written through on every change.
 
 const DB_NAME = 'motionplus';
-const DB_VERSION = 4;
-const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'users', 'posts', 'reactions'];
+const DB_VERSION = 5;
+const STORES = ['athletes', 'assessments', 'settings', 'checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'users', 'posts', 'reactions', 'links', 'messages', 'progress'];
 // Records that belong to one athlete: check-ins, training, weekly health (older data), signal notes,
-// focus checks (older data), free test results, reports sent to a coach and plans sent back.
-export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans'];
-// Accounts on this device, coach posts in the feed and athletes' reactions to them.
-export const SOCIAL = ['users', 'posts', 'reactions'];
+// focus checks (older data), free test results, reports sent to a coach, plans sent back and training sessions ticked off.
+export const MONITOR = ['checkins', 'sessions', 'weeklies', 'reviews', 'focus', 'results', 'reports', 'plans', 'progress'];
+// Accounts on this device, posts in the feed, athletes' reactions, connections and chat messages.
+export const SOCIAL = ['users', 'posts', 'reactions', 'links', 'messages'];
 
 let db = null;
-const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], focus: [], results: [], reports: [], plans: [], users: [], posts: [], reactions: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
+const state = { athletes: [], assessments: [], checkins: [], sessions: [], weeklies: [], reviews: [], focus: [], results: [], reports: [], plans: [], users: [], posts: [], reactions: [], links: [], messages: [], progress: [], settings: { id: 'app', assessorName: '', clinicName: 'MotionPlus Physio' }, ready: false, storage: 'indexeddb' };
 const listeners = new Set();
 
 function openDb() {

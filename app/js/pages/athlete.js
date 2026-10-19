@@ -1,10 +1,14 @@
-// The athlete app: Today, daily pulse, free tests, Mirror, feed, exercise library and profile.
-import { html, useState, useEffect } from '../vendor/preact-htm.js';
+// The athlete app: Home, Feed, Train (programme, tests, Mirror, progress, library), Chat and Me.
+import { html, useState } from '../vendor/preact-htm.js';
 import { go, toast, has, downloadFile } from '../ui.js';
 import { XIcon, XSeg, XScale, XField, firstName, initial, ago } from '../xui.js';
 import * as store from '../store.js';
-import { me, myAthlete, signOut, joinTeam, coachesOf, switchTo, ROLES } from '../session.js';
-import { feedFor, toggleReaction, myReaction, reactionsOn, REACTIONS, POST_TYPES, sendReport, myReports, plansFor, resultsFor, starred } from '../social.js';
+import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
+import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone } from '../social.js';
+import { prosOf, unreadFor } from '../connect.js';
+import { Feed, PostPage } from './feed.js';
+import { ProProfile, Find, MyPros, ChatList, ChatThread } from './people.js';
+import { MirrorBoard, ExerciseRows, Spark } from './parts.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
 
@@ -13,12 +17,14 @@ const M = globalThis.MotionPlusMonitor;
 
 // ---------- shell ----------
 const TABS = [
-  { path: '/', label: 'Today', icon: 'today' },
-  { path: '/tests', label: 'Tests', icon: 'tests' },
-  { path: '/mirror', label: 'Mirror', icon: 'mirror' },
-  { path: '/feed', label: 'Feed', icon: 'feed' },
-  { path: '/library', label: 'Library', icon: 'library' },
+  { path: '/', label: 'Home', icon: 'home' },
+  { path: '/feed', label: 'Feed', icon: 'play' },
+  { path: '/train', label: 'Train', icon: 'train' },
+  { path: '/chat', label: 'Chat', icon: 'chat' },
+  { path: '/me', label: 'Me', icon: 'me' },
 ];
+const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress'];
+const ME = ['me', 'find', 'pro'];
 
 export function AthleteApp({ r }) {
   const [a, b] = r.parts;
@@ -28,16 +34,24 @@ export function AthleteApp({ r }) {
   else if (a === 'tests' && !b) page = html`<${Tests} />`;
   else if (a === 'tests') page = html`<${TestRun} key=${b} testKey=${b} />`;
   else if (a === 'mirror') page = html`<${Mirror} />`;
+  else if (a === 'train') page = html`<${Train} />`;
+  else if (a === 'progress') page = html`<${Progress} />`;
   else if (a === 'feed') page = html`<${Feed} query=${r.query} />`;
+  else if (a === 'p') page = html`<${PostPage} id=${b} />`;
   else if (a === 'library' && !b) page = html`<${Library} query=${r.query} />`;
   else if (a === 'library') page = html`<${Exercise} id=${b} />`;
   else if (a === 'me') page = html`<${Me} />`;
+  else if (a === 'find') page = html`<${Find} />`;
+  else if (a === 'pro') page = html`<${ProProfile} key=${b} id=${b} />`;
+  else if (a === 'chat' && !b) page = html`<${ChatList} />`;
+  else if (a === 'chat') page = html`<${ChatThread} key=${b} otherId=${b} />`;
   else if (a === 'plans') page = html`<${Plans} />`;
-  else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go to Today</a></div></div>`;
-  const active = (p) => (p === '/' ? r.path === '/' || r.path === '/pulse' || r.path === '/me' || r.path === '/plans' : r.path.startsWith(p));
-  const hideTabs = a === 'pulse' || (a === 'tests' && b);
+  else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go home</a></div></div>`;
+  const active = (p) => (p === '/' ? !a || a === 'pulse' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
+  const hideTabs = a === 'pulse' || (a === 'tests' && b) || (a === 'chat' && b);
+  const unread = unreadFor(me());
   return html`<div class="x">${page}
-    ${hideTabs ? null : html`<nav class="x-tabs" aria-label="Main">${TABS.map((t) => html`<a href=${'#' + t.path} class=${active(t.path) ? 'on' : ''} aria-current=${active(t.path) ? 'page' : null}><${XIcon} name=${t.icon} size=${24} />${t.label}</a>`)}</nav>`}
+    ${hideTabs ? null : html`<nav class="x-tabs" aria-label="Main">${TABS.map((t) => html`<a href=${'#' + t.path} class=${active(t.path) ? 'on' : ''} aria-current=${active(t.path) ? 'page' : null}><${XIcon} name=${t.icon} size=${24} />${t.label}${t.path === '/chat' && unread ? html`<span class="x-dot">${unread}</span>` : null}</a>`)}</nav>`}
   </div>`;
 }
 
@@ -98,16 +112,18 @@ function Today() {
   const nx = nextTest(results);
   const g = nx.last ? T.ghost(results, nx.t.key) : null;
   const plan = plansFor(a.id)[0];
+  const team = prosOf(u.id);
   const n = streak(checkins);
   const date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   return html`<div class="x-page">
+    <div class="x-brand" style="padding:0 4px"><b>Sportgram</b><span>a MotionPlus product</span></div>
     <div class="x-head"><div><div class="x-over">${date}</div><h1 class="x-title">Hey ${firstName(u.name)}</h1></div><a class="x-avatar" href="#/me" aria-label="Your profile">${initial(u.name)}</a></div>
     ${urgent ? html`<div class="x-urgent" role="alert"><h1>Stop. Don't train today.</h1><p>You reported: ${urgent.title.toLowerCase()}. Tell your coach and see a doctor today. Chest pain or trouble breathing right now: call 112.</p></div>` : null}
     <div class="x-card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${n ? n + '-day streak' : 'Start your streak'}</b><span class="x-small x-dim">Best ${Math.max(n, bestStreak(checkins))}</span></div>
       <div class="x-week" aria-label="Check-ins this week">${thisWeek(checkins).map((d) => html`<span>${d.l}<i class=${d.on ? 'on' : d.today ? 'today' : ''}></i></span>`)}</div></div>
     ${done ? html`<a class="x-card" href="#/pulse" style="flex-direction:row;align-items:center;gap:14px;color:inherit"><span class="x-badge"><${XIcon} name="check" /></span><div style="flex:1"><b>Pulse done for today</b><div class="x-small x-muted">${done.pain ? 'Pain: ' + (done.regions || []).join(', ') : 'No pain'} · sleep ${done.sleepHours} h</div></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`
     : html`<div class="x-card"><div class="x-kicker">Daily pulse</div><h2>How is your body today?</h2><p class="x-muted">Six quick taps. Keeps your streak alive.</p><a class="x-btn" href="#/pulse" style="margin-top:8px">Start · 30 sec</a></div>`}
-    ${plan ? html`<a class="x-card" href="#/plans" style="flex-direction:row;align-items:center;gap:14px;color:inherit"><span class="x-avatar soft">${initial(plan.coachName)}</span><div style="flex:1;min-width:0"><b>Plan from ${plan.coachName}</b><div class="x-small x-muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${plan.text}</div></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>` : null}
+    ${plan ? html`<${ProgrammeCard} plan=${plan} />` : null}
     <a class="x-card" href="#/mirror" style="flex-direction:row;align-items:center;gap:16px;color:inherit">
       <div style="display:flex;flex-direction:column;gap:5px;width:86px" aria-hidden="true">${(rows.length ? rows.slice().sort((p, q) => ({ work: 0, watch: 1, even: 2 })[p.status] - ({ work: 0, watch: 1, even: 2 })[q.status]).slice(0, 3) : [{}, {}, {}]).map((x) => html`<div style="display:flex;gap:3px;justify-content:center"><span style=${'height:8px;border-radius:4px;width:' + Math.round((x.pctL || 90) * 0.38) + 'px;background:' + (x.weak === 'left' ? statusColor(x.status) : '#DCDCE2')}></span><span style=${'height:8px;border-radius:4px;width:' + Math.round((x.pctR || 90) * 0.38) + 'px;background:' + (x.weak === 'right' ? statusColor(x.status) : '#DCDCE2')}></span></div>`)}</div>
       <div style="flex:1"><b style="font-size:17px">Mirror</b><div class="x-small x-muted">${!rows.length ? 'Do a test to see your left and right' : toWork ? toWork + (toWork > 1 ? ' areas' : ' area') + ' to work on' : 'Left and right look even'}</div></div>
@@ -117,16 +133,30 @@ function Today() {
       <b style="font-size:20px;letter-spacing:-.02em">${nx.t.name}</b>
       ${nx.last && g ? html`<div style="display:flex;align-items:baseline;gap:10px"><span class="x-big">${nx.t.sides ? Math.min(Number(nx.last.left), Number(nx.last.right)) : nx.last.value}</span><span class="x-muted">${unitWord(nx.t)} now · ghost ${nx.t.sides ? Math.max(g.left || 0, g.right || 0) : g.value}</span></div>` : html`<span class="x-muted">${nx.t.steps[0]}</span>`}
     </a>
-    ${!u.teamCode ? html`<${JoinTeam} />` : null}
+    ${!team.length ? html`<${FindCard} />` : null}
   </div>`;
 }
 const statusColor = (s) => (s === 'work' ? '#F2385A' : s === 'watch' ? '#F59E0B' : '#DCDCE2');
+
+function FindCard() {
+  return html`<a class="x-card tint" href="#/find" style="flex-direction:row;align-items:center;gap:14px;color:#fff"><span class="x-badge" style="background:rgba(255,255,255,.18);color:#fff"><${XIcon} name="userplus" /></span><div style="flex:1"><b style="font-size:17px">Get a coach or physio</b><div class="x-small" style="opacity:.85">Read their posts, connect, and send them your Mirror.</div></div><span style="opacity:.8"><${XIcon} name="next" size=${18} /></span></a>`;
+}
+
+// This week's training from the programme a pro sent: tick off today's session.
+function ProgrammeCard({ plan }) {
+  const st = planStatus(plan);
+  return html`<div class="x-card" style="gap:12px">
+    <a href="#/plans" style="display:flex;gap:12px;align-items:center;color:inherit"><span class="x-avatar soft">${initial(plan.coachName)}</span><div style="flex:1;min-width:0"><div class="x-kicker">${st.finished ? 'Programme done' : 'Week ' + st.week + ' of ' + st.weeks}</div><b>Programme from ${plan.coachName}</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+    <div class="x-sessions" aria-label=${st.thisWeek + ' of ' + st.perWeek + ' sessions this week'}>${Array.from({ length: st.perWeek }, (_, i) => html`<i class=${i < st.thisWeek ? 'on' : ''}></i>`)}<span class="x-small x-muted">${st.thisWeek}/${st.perWeek} this week · ${st.done}/${st.total} total</span></div>
+    <button class=${'x-btn' + (st.today ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
+  </div>`;
+}
 
 function JoinTeam() {
   const [code, setCode] = useState('');
   const [bad, setBad] = useState(false);
   return html`<form class="x-card" onSubmit=${async (e) => { e.preventDefault(); const ok = await joinTeam(code); setBad(!ok); if (ok) toast('You joined the team.'); }}>
-    <div class="x-kicker">Your coach</div><h2>Join your coach's team</h2><p class="x-muted">Ask your coach, trainer or physio for their team code. Then you can send them your Mirror and see their posts.</p>
+    <div class="x-kicker">Have a team code?</div><h2>Join your coach's team</h2><p class="x-muted">A team code from your coach, trainer or physio connects you straight away.</p>
     <${XField} label="Team code" value=${code} onInput=${(v) => setCode(v.toUpperCase())} placeholder="ABC234" />
     ${bad ? html`<div class="x-err">No team with that code on this phone.</div>` : null}
     <button class="x-btn soft" type="submit">Join</button></form>`;
@@ -192,6 +222,58 @@ function Pulse() {
 const STATUS_WORD = { work: 'Work on', watch: 'Watch', even: 'Even' };
 function StatusChip({ s }) { return s ? html`<span class=${'x-chip ' + (s === 'even' ? '' : s)}>${STATUS_WORD[s]}</span>` : null; }
 
+function testRow(results) {
+  return (t) => {
+    const last = T.history(results, t.key)[0];
+    const j = last ? T.judge(t.key, last) : null;
+    return html`<a class="x-row" href=${'#/tests/' + t.key}><span class=${'x-badge ' + (j && j.status !== 'even' ? j.status : '')}><${XIcon} name=${t.sides ? 'mirror' : 'tests'} size=${18} /></span>
+      <div class="grow"><b>${t.name}</b><span class="x-small x-muted">${last ? (t.sides ? 'L ' + last.left + ' · R ' + last.right + ' ' + unitWord(t) : fmtVal(t, last.value)) + ' · ' + ago(last.date + 'T12:00:00') : t.equipment.join(', ')}</span></div>
+      ${j ? html`<${StatusChip} s=${j.status} />` : last ? null : html`<span class="x-chip tint">New</span>`}<span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`;
+  };
+}
+
+function Train() {
+  const a = myAthlete();
+  if (!a) return html`<${NoAthlete} />`;
+  const results = resultsFor(a.id);
+  const plan = plansFor(a.id)[0];
+  const rows = T.mirror(results).filter((x) => x.tested);
+  const work = rows.filter((x) => x.status === 'work').length;
+  return html`<div class="x-page">
+    <div class="x-head"><div><div class="x-over">Find it, fix it, track it</div><h1 class="x-title">Train</h1></div></div>
+    ${plan ? html`<${ProgrammeCard} plan=${plan} />` : null}
+    <div class="x-tiles">
+      <a class="x-tilebig" href="#/mirror"><span class="x-badge work"><${XIcon} name="mirror" size=${20} /></span><b>Mirror</b><span class="x-small x-muted">${!rows.length ? 'Left vs right' : work ? work + ' to work on' : 'All even'}</span></a>
+      <a class="x-tilebig" href="#/progress"><span class="x-badge"><${XIcon} name="up" size=${20} /></span><b>Progress</b><span class="x-small x-muted">${results.length} results</span></a>
+      <a class="x-tilebig" href="#/library"><span class="x-badge"><${XIcon} name="library" size=${20} /></span><b>Library</b><span class="x-small x-muted">${EXERCISES.length} exercises</span></a>
+      <a class="x-tilebig" href="#/plans"><span class="x-badge"><${XIcon} name="run" size=${20} /></span><b>Programmes</b><span class="x-small x-muted">${plansFor(a.id).length || 'None yet'}</span></a>
+    </div>
+    <div class="x-section">Tests · left vs right</div><div class="x-list">${T.TESTS.filter((t) => t.sides).map(testRow(results))}</div>
+    <div class="x-section">Tests · fitness</div><div class="x-list">${T.TESTS.filter((t) => !t.sides).map(testRow(results))}</div>
+    <p class="x-small x-dim" style="padding:0 4px">Basic equipment only. Do tests on flat, hard ground and retest every 4 weeks.</p>
+  </div>`;
+}
+
+// Every test over time, oldest to newest, with the best result.
+function Progress() {
+  const a = myAthlete();
+  if (!a) return html`<${NoAthlete} />`;
+  const results = resultsFor(a.id);
+  const done = T.TESTS.filter((t) => t.key !== 'squeeze').map((t) => ({ t, h: T.history(results, t.key).slice().reverse() })).filter((x) => x.h.length);
+  const pt = (t, r) => (t.sides ? Math.min(Number(r.left), Number(r.right)) : Number(r.value));
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
+    <div><div class="x-over">Your results over time</div><h1 class="x-title">Progress</h1></div>
+    <p class="x-sub" style="padding:0 4px">For left and right tests the line follows your weaker side, because that is the one to bring up.</p>
+    ${!done.length ? html`<div class="x-card"><b>No results yet</b><a class="x-btn soft sm" href="#/train">Do a test</a></div>`
+      : html`<div class="x-list">${done.map(({ t, h }) => {
+        const vals = h.map((r) => pt(t, r));
+        const best = t.lowerBetter ? Math.min(...vals) : Math.max(...vals);
+        return html`<a class="x-row" href=${'#/tests/' + t.key}><div class="grow"><b>${t.name}</b><span class="x-small x-muted">${h.length} result${h.length > 1 ? 's' : ''} · now ${fmtVal(t, vals[vals.length - 1])} · best ${fmtVal(t, best)}</span></div><${Spark} points=${vals.map((v) => ({ v }))} lowerBetter=${t.lowerBetter} width=${96} height=${36} /></a>`;
+      })}</div>`}
+  </div>`;
+}
+
 function Tests() {
   const a = myAthlete();
   if (!a) return html`<${NoAthlete} />`;
@@ -227,7 +309,7 @@ function TestRun({ testKey }) {
   const [errs, setErrs] = useState([]);
   const [saved, setSaved] = useState(null);
   if (!a) return html`<${NoAthlete} />`;
-  if (!t) return html`<div class="x-page plain"><div class="x-card"><h2>Test not found</h2><a href="#/tests">All tests</a></div></div>`;
+  if (!t) return html`<div class="x-page plain"><div class="x-card"><h2>Test not found</h2><a href="#/train">All tests</a></div></div>`;
   const results = resultsFor(a.id);
   const g = T.ghost(results, t.key);
   const counting = t.unit === 'raises' || t.unit === 'reps';
@@ -251,11 +333,11 @@ function TestRun({ testKey }) {
         <p class="x-sub">${beat && beat.length ? (t.sides ? beat.map((s) => s[0].toUpperCase() + s.slice(1)).join(' and ') + ' side' + (beat.length > 1 ? 's' : '') + ' set a new best.' : 'New personal best: ' + fmtVal(t, saved.value) + '.') : g ? 'This is your new ghost to chase next time.' : 'This is your ghost. Beat it next time.'}</p>
       </div>
       ${j ? html`<div class="x-card" style="flex-direction:row;gap:12px;align-items:center"><span class=${'x-badge ' + (j.status === 'even' ? '' : j.status)}><${XIcon} name=${j.status === 'even' ? 'check' : 'alert'} size=${18} /></span><div style="flex:1"><b>${STATUS_WORD[j.status]}</b><div class="x-small x-muted">${j.text}</div></div></div>` : null}
-      <a class="x-btn" href="#/mirror">See your Mirror</a><a class="x-btn ghost" href="#/tests">Back to tests</a>
+      <a class="x-btn" href="#/mirror">See your Mirror</a><a class="x-btn ghost" href="#/train">Back to Train</a>
     </div>`;
   }
   return html`<div class="x-page plain">
-    <div class="x-topbar"><a class="x-link" href="#/tests">Cancel</a><span class="x-small x-dim" style="font-weight:600">${t.equipment.join(' · ')}</span></div>
+    <div class="x-topbar"><a class="x-link" href="#/train">Cancel</a><span class="x-small x-dim" style="font-weight:600">${t.equipment.join(' · ')}</span></div>
     <h1 class="x-title md">${t.name}</h1>
     <ol style="margin:0;padding-left:20px;color:var(--x-muted);display:grid;gap:6px">${t.steps.map((s) => html`<li>${s}</li>`)}</ol>
     ${t.sides ? html`<${XSeg} label="Side" value=${side} onChange=${setSide} options=${[{ value: 'left', label: 'Left' + (has(e.left) ? ' · ' + e.left : '') }, { value: 'right', label: 'Right' + (has(e.right) ? ' · ' + e.right : '') }]} />` : null}
@@ -272,18 +354,6 @@ function TestRun({ testKey }) {
 }
 
 // ---------- mirror ----------
-export function MirrorBoard({ rows }) {
-  return html`<div class="x-card" style="padding:18px 14px 14px">
-    <div class="x-mirror-head"><div>LEFT</div><div></div><div>RIGHT</div></div>
-    ${rows.map((x) => x.tested ? html`<div class="x-mirror-row">
-        <div class="l"><span class=${'v ' + (x.weak === 'left' && x.status !== 'even' ? x.status : '')}>${x.left}</span><span class=${'bar ' + (x.weak === 'left' && x.status !== 'even' ? x.status : '')} style=${'width:' + Math.round(x.pctL * 1.1) + 'px'}></span></div>
-        <div class="name">${x.name}</div>
-        <div class="r"><span class=${'bar ' + (x.weak === 'right' && x.status !== 'even' ? x.status : '')} style=${'width:' + Math.round(x.pctR * 1.1) + 'px'}></span><span class=${'v ' + (x.weak === 'right' && x.status !== 'even' ? x.status : '')}>${x.right}</span></div>
-      </div>` : html`<div class="x-mirror-row untested"><div class="l"><span class="none">Not tested</span></div><div class="name">${x.name}</div><div class="r"></div></div>`)}
-    <div class="x-legend"><span><i style="background:#F2385A"></i>Work on</span><span><i style="background:#F59E0B"></i>Watch</span><span><i style="background:#CFCFD6"></i>Even</span></div>
-  </div>`;
-}
-
 function Mirror() {
   const u = me();
   const a = myAthlete();
@@ -297,66 +367,23 @@ function Mirror() {
   const sj = squeeze ? T.judge('squeeze', squeeze) : null;
   const strengths = T.improvements(results).map((x) => x.text).concat(rows.filter((x) => x.tested && x.status === 'even').map((x) => x.name + ' even'));
   const reports = myReports(u);
+  const team = prosOf(u.id);
   const send = async () => { setSending(true); try { await sendReport(note); setNote(''); toast('Sent to your coach.'); } catch (e) { toast(e.message); } setSending(false); };
   return html`<div class="x-page">
+    <div class="x-topbar x-noprint"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
     <div class="x-head"><div><div class="x-over">Left and right, head to toe</div><h1 class="x-title">Mirror</h1></div><button class="x-link x-noprint" onClick=${() => window.print()}><${XIcon} name="print" size=${20} />PDF</button></div>
     <p class="x-sub" style="padding:0 4px">The shorter side is where you're losing power. Bars show each side as a share of your stronger side.</p>
     <${MirrorBoard} rows=${rows} />
     ${flagged.length || (sj && sj.status === 'work') ? html`<div class="x-list">${flagged.map((x) => html`<a class="x-row" href=${'#/library?area=' + x.area}><span class=${'x-badge ' + x.status}><${XIcon} name="down" size=${16} /></span><div class="grow"><b>${x.text}</b><span class="x-small x-muted">${T.byKey(x.test).name} · ${ago(x.date + 'T12:00:00')} · exercises</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`)}
       ${sj && sj.status === 'work' ? html`<a class="x-row" href="#/library?area=groin"><span class="x-badge work"><${XIcon} name="alert" size=${16} /></span><div class="grow"><b>${sj.text}</b><span class="x-small x-muted">Groin squeeze · show your physio</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>` : null}</div>` : null}
     ${strengths.length ? html`<div class="x-card" style="flex-direction:row;gap:12px;align-items:center"><span class="x-badge"><${XIcon} name="up" size=${16} /></span><div style="flex:1"><b>Your strengths</b><div class="x-small x-muted">${strengths.join(' · ')}</div></div></div>` : null}
-    ${!rows.some((x) => x.tested) ? html`<a class="x-btn" href="#/tests">Do your first test</a>` : u.teamCode ? html`<div class="x-card x-noprint" style="gap:12px"><div class="x-kicker">Your coach</div><h2>Send your Mirror</h2>
-        <p class="x-muted">${coachesOf(u.teamCode).map((c) => c.name + ' (' + ROLES[c.role] + ')').join(', ') || 'Your team'} will see your tests and last 7 days, and can send you a plan.</p>
+    ${!rows.some((x) => x.tested) ? html`<a class="x-btn" href="#/train">Do your first test</a>`
+      : team.length ? html`<div class="x-card x-noprint" style="gap:12px"><div class="x-kicker">Your team</div><h2>Send your Mirror</h2>
+        <p class="x-muted">${team.map((c) => c.name + ' (' + ROLES[c.role] + ')').join(', ')} will see your tests and last 7 days, and can send you a programme.</p>
         <${XField} label="Anything to add? (optional)" type="textarea" rows=${2} value=${note} onInput=${setNote} placeholder="For example: my left calf feels tight after spikes" />
         <button class="x-btn" disabled=${sending} onClick=${send}><${XIcon} name="share" size=${20} />Send to my coach</button>
-        ${reports.length ? html`<p class="x-small x-dim">Last sent ${ago(reports[0].createdAt)} · ${reports[0].status === 'answered' ? 'plan received' : 'waiting for a plan'}</p>` : null}</div>`
-      : html`<${JoinTeam} />`}
-  </div>`;
-}
-
-// ---------- feed ----------
-const TYPE_ICON = { insight: 'bulb', document: 'file', training: 'run' };
-function FileView({ p }) {
-  const [url, setUrl] = useState(null);
-  useEffect(() => {
-    if (!p.file) return undefined;
-    const u = URL.createObjectURL(p.file);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [p.id]);
-  if (!p.file) return p.fileName ? html`<span class="x-small x-dim">${p.fileName} (not on this phone)</span>` : null;
-  if (!url) return null;
-  if ((p.fileType || '').startsWith('image/')) return html`<img src=${url} alt=${p.title} />`;
-  return html`<a class="x-row" style="background:var(--x-bg);border-radius:14px" href=${url} target="_blank" rel="noopener" download=${p.fileName}><span class="x-badge"><${XIcon} name="file" size=${18} /></span><div class="grow"><b>${p.fileName}</b><span class="x-small x-muted">Open document</span></div></a>`;
-}
-
-export function PostCard({ p, canReact, onDelete }) {
-  const rs = reactionsOn(p.id);
-  return html`<article class="x-post">
-    <div class="x-post-head"><span class="x-avatar soft">${initial(p.authorName)}</span><div class="grow"><b>${p.authorName}</b><div class="x-small x-muted">${ROLES[p.authorRole] || 'Coach'} · ${ago(p.createdAt)}</div></div><span class="x-chip tint"><${XIcon} name=${TYPE_ICON[p.type]} size=${14} />${POST_TYPES[p.type]}</span></div>
-    <h3>${p.title}</h3>
-    ${p.body ? html`<p>${p.body}</p>` : null}
-    <${FileView} p=${p} />
-    ${p.exercises && p.exercises.length ? html`<div class="x-list" style="background:var(--x-bg)">${p.exercises.map((k) => exercise(k)).filter(Boolean).map((x) => html`<a class="x-row" href=${'#/library/' + x.key}><div class="grow"><b>${x.name}</b><span class="x-small x-muted">${x.dose}</span></div><span class="x-chev"><${XIcon} name="next" size=${16} /></span></a>`)}</div>` : null}
-    <div class="x-react">${REACTIONS.map((rx) => {
-      const n = rs.filter((x) => x.kind === rx.key).length;
-      return canReact ? html`<button type="button" aria-pressed=${String(myReaction(p.id, rx.key))} aria-label=${rx.label} onClick=${() => toggleReaction(p.id, rx.key)}><${XIcon} name=${rx.key} size=${18} fill=${myReaction(p.id, rx.key)} />${n || ''}</button>`
-        : html`<span title=${rx.label}><${XIcon} name=${rx.key} size=${18} />${n}</span>`;
-    })}${onDelete ? html`<button type="button" style="margin-left:auto" aria-label="Delete post" onClick=${onDelete}><${XIcon} name="trash" size=${18} /></button>` : null}</div>
-  </article>`;
-}
-
-function Feed({ query }) {
-  const u = me();
-  const [only, setOnly] = useState(query.get('show') || 'all');
-  const posts = feedFor(u);
-  const stars = new Set(starred(u));
-  const shown = only === 'starred' ? posts.filter((p) => stars.has(p.id)) : posts;
-  return html`<div class="x-page">
-    <div class="x-head"><div><div class="x-over">From your coaches</div><h1 class="x-title">Feed</h1></div></div>
-    <${XSeg} label="Show" value=${only} onChange=${setOnly} options=${[{ value: 'all', label: 'All' }, { value: 'starred', label: 'Starred' }]} />
-    ${!u.teamCode ? html`<${JoinTeam} />` : !shown.length ? html`<div class="x-card" style="align-items:center;text-align:center;padding:36px 18px"><span class="x-badge"><${XIcon} name=${only === 'starred' ? 'star' : 'feed'} /></span><b>${only === 'starred' ? 'No starred posts yet' : 'Nothing posted yet'}</b><p class="x-muted x-small">${only === 'starred' ? 'Tap the star on a post to keep it here.' : 'Insights, documents and training from your coaches will show up here.'}</p></div>`
-      : shown.map((p) => html`<${PostCard} key=${p.id} p=${p} canReact=${true} />`)}
+        ${reports.length ? html`<p class="x-small x-dim">Last sent ${ago(reports[0].createdAt)} · ${reports[0].status === 'answered' ? 'programme received' : 'waiting for a programme'}</p>` : null}</div>`
+      : html`<${FindCard} />`}
   </div>`;
 }
 
@@ -366,6 +393,7 @@ export function Library({ query }) {
   const [area, setArea] = useState(query.get('area') || '');
   const list = EXERCISES.filter((x) => (!area || x.area === area) && (!q || (x.name + ' ' + x.equipment).toLowerCase().includes(q.toLowerCase())));
   return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
     <div class="x-head"><div><div class="x-over">Basic equipment</div><h1 class="x-title">Library</h1></div></div>
     <label class="x-field"><span class="x-noprint" style="position:absolute;left:-9999px">Search exercises</span><input class="x-input" style="background:#fff" type="search" placeholder="Search exercises" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
     <div class="x-chips"><button type="button" class=${'x-chip' + (!area ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(!area)} onClick=${() => setArea('')}>All</button>${Object.entries(LIB_AREAS).map(([k, v]) => html`<button type="button" class=${'x-chip' + (area === k ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(area === k)} onClick=${() => setArea(k)}>${v}</button>`)}</div>
@@ -391,12 +419,19 @@ function Plans() {
   const a = myAthlete();
   const plans = a ? plansFor(a.id) : [];
   return html`<div class="x-page">
-    <div class="x-topbar"><a class="x-link" href="#/"><${XIcon} name="back" size=${20} />Today</a></div>
-    <h1 class="x-title">Your plans</h1>
-    ${!plans.length ? html`<div class="x-card"><b>No plans yet</b><p class="x-muted x-small">Send your Mirror to your coach from the Mirror tab. Their plan will show up here.</p></div>`
-      : plans.map((p) => html`<div class="x-card"><div style="display:flex;gap:10px;align-items:center"><span class="x-avatar soft">${initial(p.coachName)}</span><div><b>${p.coachName}</b><div class="x-small x-muted">${ROLES[p.coachRole] || 'Coach'} · ${ago(p.createdAt)}</div></div></div>
-        <p style="white-space:pre-line">${p.text}</p>
-        ${p.exercises.length ? html`<div class="x-list" style="background:var(--x-bg)">${p.exercises.map((k) => exercise(k)).filter(Boolean).map((x) => html`<a class="x-row" href=${'#/library/' + x.key}><div class="grow"><b>${x.name}</b><span class="x-small x-muted">${x.dose}</span></div><span class="x-chev"><${XIcon} name="next" size=${16} /></span></a>`)}</div>` : null}</div>`)}
+    <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
+    <h1 class="x-title">Your programmes</h1>
+    ${!plans.length ? html`<div class="x-card"><b>No programme yet</b><p class="x-muted x-small">Send your Mirror to your coach or physio. Their programme shows up here.</p><a class="x-btn soft sm" href="#/mirror">Open your Mirror</a></div>`
+      : plans.map((p, i) => {
+        const st = planStatus(p);
+        const log = sessionsDone(p);
+        return html`<div class="x-card" style="gap:12px"><div style="display:flex;gap:10px;align-items:center"><a class="x-avatar soft" href=${'#/pro/' + p.coachId}>${initial(p.coachName)}</a><div style="flex:1"><b>${p.coachName}</b><div class="x-small x-muted">${ROLES[p.coachRole] || 'Coach'} · ${ago(p.createdAt)}</div></div><a class="x-btn soft sm" href=${'#/chat/' + p.coachId} aria-label="Ask a doubt"><${XIcon} name="chat" size=${18} /></a></div>
+          <div class="x-chips"><span class="x-chip tint">${st.weeks} weeks</span><span class="x-chip">${st.perWeek} sessions a week</span><span class="x-chip">${st.done}/${st.total} done</span></div>
+          <p style="white-space:pre-line">${p.text}</p>
+          <${ExerciseRows} keys=${p.exercises} bg="var(--x-bg)" />
+          ${i === 0 ? html`<div class="x-weeks" aria-label="Programme weeks">${Array.from({ length: st.weeks }, (_, w) => { const n = log.filter((x) => Math.floor((Date.parse(x.date) - Date.parse(p.createdAt.slice(0, 10))) / (7 * 864e5)) === w).length; return html`<div class=${w + 1 === st.week ? 'now' : ''}><span>W${w + 1}</span><b>${n}/${st.perWeek}</b></div>`; })}</div>` : null}
+        </div>`;
+      })}
   </div>`;
 }
 
@@ -404,14 +439,13 @@ function Me() {
   const u = me();
   const a = myAthlete();
   const others = store.getState().users.filter((x) => x.id !== u.id);
-  const coaches = u.teamCode ? coachesOf(u.teamCode) : [];
   return html`<div class="x-page">
-    <div class="x-topbar"><a class="x-link" href="#/"><${XIcon} name="back" size=${20} />Today</a></div>
-    <div style="display:flex;gap:14px;align-items:center;padding:0 4px"><span class="x-avatar" style="width:64px;height:64px;font-size:26px">${initial(u.name)}</span><div><h1 class="x-title md">${u.name}</h1><p class="x-muted">${a ? [a.position || 'Athletics', a.dob ? a.dob.slice(0, 4) : ''].filter(Boolean).join(' · ') : ''}</p></div></div>
+    <div style="display:flex;gap:14px;align-items:center;padding:12px 4px 0"><span class="x-avatar" style="width:64px;height:64px;font-size:26px">${initial(u.name)}</span><div><h1 class="x-title md">${u.name}</h1><p class="x-muted">${a ? [a.position || 'Athletics', a.dob ? a.dob.slice(0, 4) : ''].filter(Boolean).join(' · ') : ''}</p></div></div>
+    <div class="x-section">Your coaches and physios</div>
+    <${MyPros} />
     <div class="x-list">
-      <div class="x-row"><div class="grow"><b>Team</b><span class="x-small x-muted">${u.teamCode ? u.teamCode + ' · ' + (coaches.map((c) => c.name).join(', ') || 'no coach on this phone') : 'Not in a team yet'}</span></div></div>
-      <a class="x-row" href="#/plans"><div class="grow"><b>Plans from your coach</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
-      <a class="x-row" href="#/feed?show=starred"><div class="grow"><b>Starred posts</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+      <a class="x-row" href="#/plans"><div class="grow"><b>Your programmes</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+      <a class="x-row" href="#/feed?show=saved"><div class="grow"><b>Saved posts</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
       <button class="x-row" type="button" onClick=${() => downloadFile('motionplus-' + today() + '.json', JSON.stringify(store.exportData(), null, 1))}><div class="grow"><b>Download a backup</b><span class="x-small x-muted">Your records stay on this phone. Keep a copy.</span></div></button>
     </div>
     ${!u.teamCode ? html`<${JoinTeam} />` : null}

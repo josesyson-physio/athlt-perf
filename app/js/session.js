@@ -2,6 +2,7 @@
 // This version keeps accounts on this device only; online sign-in replaces this file's storage
 // when a server is connected. Passwords are stored as salted SHA-256 hashes, never as text.
 import * as store from './store.js';
+import { linkActive } from './connect.js';
 
 const KEY = 'mp-session';
 let current = null;
@@ -62,10 +63,14 @@ export async function signUp(f) {
     user.teamCode = f.teamCode ? f.teamCode.trim().toUpperCase() : '';
   } else {
     user.teamCode = newTeamCode();
+    user.speciality = (f.speciality || '').trim();
+    user.place = (f.place || '').trim();
+    user.bio = '';
     if (!store.getState().settings.assessorName) await store.saveSettings({ assessorName: user.name });
   }
   await store.saveRecord('users', user);
   remember(user.id);
+  if (user.teamCode && f.role === 'athlete') for (const c of coachesOf(user.teamCode)) await linkActive(user.id, c.id, { from: 'team' });
   return user;
 }
 
@@ -85,6 +90,7 @@ export async function joinTeam(code) {
   const c = String(code || '').trim().toUpperCase();
   if (!u || !teamExists(c)) return false;
   await store.saveRecord('users', Object.assign({}, u, { teamCode: c }));
+  for (const p of coachesOf(c)) await linkActive(u.id, p.id, { from: 'team' });
   return true;
 }
 

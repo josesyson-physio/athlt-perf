@@ -106,13 +106,13 @@ function App() {
   const search = (e) => { e.preventDefault(); go('/athletes?q=' + encodeURIComponent(q)); };
   return html`<div class="app">
     <aside class="side" aria-label="Main navigation">
-      <a class="wordmark" href="#/" style="color:inherit;text-decoration:none"><b>MotionPlus</b><small>Coach tools</small></a>
+      <a class="wordmark" href="#/" style="color:inherit;text-decoration:none"><b>Sportgram</b><small>Coach tools</small></a>
       ${groups.map((g) => html`<div class="navlabel">${g}</div><nav class="nav">${NAV.filter((n) => n.group === g).map((n) => html`<a href=${'#' + n.path} class=${isActive(r, n.path) ? 'active' : ''} aria-current=${isActive(r, n.path) ? 'page' : null}><${Icon} name=${n.icon} />${n.label}</a>`)}</nav>`)}
       <div class="who"><b>${s.settings.assessorName || 'Assessor not set'}</b><div class="muted small">${s.settings.clinicName || ''}</div>${!s.settings.assessorName ? html`<a href="#/settings" class="small">Add your name</a>` : null}</div>
     </aside>
     <div class="main">
       <header class="top">
-        <span class="mobile-brand">MotionPlus</span>
+        <a class="mobile-brand" href="#/me" style="color:inherit;text-decoration:none">‹ Sportgram</a>
         <form class="search" role="search" onSubmit=${search}><${Icon} name="search" size=${16} /><input aria-label="Search athletes" placeholder="Search athletes by name, ID or sport" value=${q} onInput=${(e) => setQ(e.target.value)} /></form>
         <div class="top-right"><${NetStatus} /><a class="btn primary sm" href="#/assess"><${Icon} name="plus" size=${16} />Assess</a></div>
       </header>
