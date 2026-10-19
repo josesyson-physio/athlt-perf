@@ -4,15 +4,20 @@ import { go, toast, has, downloadFile, buzz } from '../ui.js';
 import { XIcon, XSeg, XScale, XField, firstName, initial, ago } from '../xui.js';
 import * as store from '../store.js';
 import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
-import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone } from '../social.js';
+import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone, ladderFor, logLadder } from '../social.js';
+import { buildWarmup } from '../warmup.js';
+import { growthGuide } from '../growth.js';
+import { questionsFor, energyResult } from '../energy.js';
+import { STAGES, stageByKey, judgeAttempt, ladderStatus, hopLsi, PAIN_OK, HOP_OK } from '../ladder.js';
 import { prosOf, unreadFor } from '../connect.js';
 import { Feed, PostPage } from './feed.js';
 import { ProProfile, Find, MyPros, ChatList, ChatThread } from './people.js';
-import { MirrorBoard, BodyMirror, ExerciseRows, Spark } from './parts.js';
+import { MirrorBoard, BodyMirror, PainMap, ExerciseRows, Spark } from './parts.js';
 import { Logo, Wordmark } from '../logo.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
-import { ReadAloud, TestTool, VoiceSwitch, SessionCoach } from './tools.js';
+import { ReadAloud, TestTool, VoiceSwitch, VoiceRow, SessionCoach } from './tools.js';
+import { isLarge, setLargeText } from '../access.js';
 
 const T = globalThis.MotionPlusTests;
 const M = globalThis.MotionPlusMonitor;
@@ -25,8 +30,8 @@ const TABS = [
   { path: '/chat', label: 'Chat', icon: 'chat' },
   { path: '/me', label: 'Me', icon: 'me' },
 ];
-const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress', 'session'];
-const ME = ['me', 'find', 'pro'];
+const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress', 'session', 'warmup', 'ladder'];
+const ME = ['me', 'find', 'pro', 'growth', 'energy'];
 
 export function AthleteApp({ r }) {
   const [a, b] = r.parts;
@@ -49,9 +54,13 @@ export function AthleteApp({ r }) {
   else if (a === 'chat') page = html`<${ChatThread} key=${b} otherId=${b} />`;
   else if (a === 'plans') page = html`<${Plans} />`;
   else if (a === 'session') page = html`<${Session} key=${b} planId=${b} />`;
+  else if (a === 'warmup') page = html`<${Warmup} />`;
+  else if (a === 'ladder') page = html`<${Ladder} />`;
+  else if (a === 'growth') page = html`<${Growth} />`;
+  else if (a === 'energy') page = html`<${Energy} />`;
   else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go home</a></div></div>`;
   const active = (p) => (p === '/' ? !a || a === 'pulse' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
-  const hideTabs = a === 'pulse' || a === 'session' || (a === 'tests' && b) || (a === 'chat' && b);
+  const hideTabs = a === 'pulse' || a === 'session' || a === 'warmup' || (a === 'tests' && b) || (a === 'chat' && b);
   const unread = unreadFor(me());
   return html`<div class="x">${page}
     ${hideTabs ? null : html`<nav class="x-tabs" aria-label="Main">${TABS.map((t) => html`<a href=${'#' + t.path} class=${active(t.path) ? 'on' : ''} aria-current=${active(t.path) ? 'page' : null}><${XIcon} name=${t.icon} size=${24} />${t.label}${t.path === '/chat' && unread ? html`<span class="x-dot">${unread}</span>` : null}</a>`)}</nav>`}
@@ -116,12 +125,20 @@ function Today() {
   const g = nx.last ? T.ghost(results, nx.t.key) : null;
   const plan = plansFor(a.id)[0];
   const team = prosOf(u.id);
+  const physio = team.find((p) => p.role === 'physio');
+  const physioFlag = ev.signals.find((x) => x.rule === 'pain_physio');
+  const ladder = ladderFor(a.id);
+  const ls = ladder ? ladderStatus(ladder) : null;
   const n = streak(checkins);
   const date = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   return html`<div class="x-page">
     <div class="sg-lock" style="padding:0 4px"><${Logo} size=${30} /><${Wordmark} size=${22} /></div>
     <div class="x-head"><div><div class="x-over">${date}</div><h1 class="x-title">Hey ${firstName(u.name)}</h1></div><a class="x-avatar" href="#/me" aria-label="Your profile">${initial(u.name)}</a></div>
     ${urgent ? html`<div class="x-urgent" role="alert"><h1>Stop. Don't train today.</h1><p>You reported: ${urgent.title.toLowerCase()}. Tell your coach and see a doctor today. Chest pain or trouble breathing right now: call 112.</p></div>` : null}
+    ${physioFlag ? html`<div class="x-card" style="gap:10px;box-shadow:inset 0 0 0 1.5px var(--x-work)"><div class="x-kicker" style="color:var(--x-work-text)">Physio check</div><b style="font-size:17px">${physioFlag.region} pain two days running</b>
+      <p class="x-small x-muted">${physio ? physio.name + ' has been sent a flag and can see your pulse. Go easy on this area until you talk.' : 'Pain at 4 or more two days in a row is worth a physio look. Connect with one so they get these flags.'}</p>
+      ${physio ? html`<a class="x-btn soft sm" href=${'#/chat/' + physio.id}><${XIcon} name="chat" size=${18} />Message ${firstName(physio.name)}</a>` : html`<a class="x-btn soft sm" href="#/find">Find a physio</a>`}</div>` : null}
+    ${ladder ? html`<a class="x-card" href="#/ladder" style="flex-direction:row;align-items:center;gap:14px;color:inherit"><span class="x-badge"><${XIcon} name="run" /></span><div style="flex:1"><b>Back to running</b><div class="x-small x-muted">${ls.done ? 'Ladder done. Well climbed.' : 'Stage ' + (ls.index + 1) + ' of ' + ls.total + ': ' + stageByKey(ls.current).name}</div></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>` : null}
     <div class="x-card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${n ? n + '-day streak' : 'Start your streak'}</b><span class="x-small x-dim">Best ${Math.max(n, bestStreak(checkins))}</span></div>
       <div class="x-week" aria-label="Check-ins this week">${thisWeek(checkins).map((d) => html`<span>${d.l}<i class=${d.on ? 'on' : d.today ? 'today' : ''}></i></span>`)}</div></div>
     ${done ? html`<a class="x-card" href="#/pulse" style="flex-direction:row;align-items:center;gap:14px;color:inherit"><span class="x-badge"><${XIcon} name="check" /></span><div style="flex:1"><b>Pulse done for today</b><div class="x-small x-muted">${done.pain ? 'Pain: ' + (done.regions || []).join(', ') : 'No pain'} · sleep ${done.sleepHours} h</div></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`
@@ -200,7 +217,7 @@ function Pulse() {
     if (!rec.pain) { rec.regions = []; rec.painScore = ''; rec.painAffectsRunning = false; }
     await store.saveRecord('checkins', rec);
     if (RED.some(([k]) => rec.redFlags[k])) { setUrgent(true); return; }
-    toast('Pulse saved. Streak kept.');
+    toast('Pulse saved on your phone. Streak kept.');
     go('/');
   };
   const toggle = (r) => set('regions', f.regions.includes(r) ? f.regions.filter((x) => x !== r) : f.regions.concat([r]));
@@ -208,7 +225,7 @@ function Pulse() {
     <div class="x-topbar"><a class="x-link" href="#/">Cancel</a><span class="x-small x-dim" style="font-weight:600">Daily pulse</span></div>
     <h1 class="x-title md">How is your body today?</h1>
     <div class="x-card"><b>Any pain or niggle today?</b><${XSeg} label="Pain" value=${f.pain} options=${yesNo} onChange=${(v) => set('pain', v)} />
-      ${f.pain ? html`<b style="margin-top:8px">Where?</b><div class="x-chips">${M.REGIONS.map((r) => html`<button type="button" class=${'x-chip' + (f.regions.includes(r) ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(f.regions.includes(r))} onClick=${() => toggle(r)}>${r}</button>`)}</div>
+      ${f.pain ? html`<b style="margin-top:8px">Where?</b><${PainMap} regions=${M.REGIONS} chosen=${f.regions} onToggle=${toggle} />
         <b style="margin-top:8px">How bad, 0 to 10?</b><div class="x-scale eleven" role="group" aria-label="Pain score">${Array.from({ length: 11 }, (_, i) => html`<button type="button" aria-pressed=${String(f.painScore === i)} onClick=${() => set('painScore', i)}><b>${i}</b></button>`)}</div>
         <b style="margin-top:8px">Is it changing how you run or move?</b><${XSeg} label="Pain changes movement" value=${f.painAffectsRunning} options=${yesNo} onChange=${(v) => set('painAffectsRunning', v)} />` : null}
     </div>
@@ -251,6 +268,8 @@ function Train() {
       <a class="x-tilebig" href="#/progress"><span class="x-badge"><${XIcon} name="up" size=${20} /></span><b>Progress</b><span class="x-small x-muted">${results.length} results</span></a>
       <a class="x-tilebig" href="#/library"><span class="x-badge"><${XIcon} name="library" size=${20} /></span><b>Library</b><span class="x-small x-muted">${EXERCISES.length} exercises</span></a>
       <a class="x-tilebig" href="#/plans"><span class="x-badge"><${XIcon} name="run" size=${20} /></span><b>Programmes</b><span class="x-small x-muted">${plansFor(a.id).length || 'None yet'}</span></a>
+      <a class="x-tilebig" href="#/warmup"><span class="x-badge watch"><${XIcon} name="fire" size=${20} /></span><b>Smart warm-up</b><span class="x-small x-muted">${work ? 'Built for your gaps' : '15 minutes'}</span></a>
+      ${ladderFor(a.id) ? html`<a class="x-tilebig" href="#/ladder"><span class="x-badge"><${XIcon} name="flag" size=${20} /></span><b>Back to running</b><span class="x-small x-muted">${(() => { const st = ladderStatus(ladderFor(a.id)); return st.done ? 'Done' : 'Stage ' + (st.index + 1) + ' of ' + st.total; })()}</span></a>` : null}
     </div>
     <div class="x-section">Tests · left vs right</div><div class="x-list">${T.TESTS.filter((t) => t.sides).map(testRow(results))}</div>
     <div class="x-section">Tests · fitness</div><div class="x-list">${T.TESTS.filter((t) => !t.sides).map(testRow(results))}</div>
@@ -334,6 +353,7 @@ function TestRun({ testKey }) {
       <div style="padding:40px 4px 8px;display:flex;flex-direction:column;gap:10px">
         <span class="x-badge" style="width:56px;height:56px;border-radius:18px"><${XIcon} name=${beat && beat.length ? 'star' : 'check'} size=${28} /></span>
         <h1 class="x-title">${beat && beat.length ? 'You beat your ghost' : g ? 'Saved' : 'First result saved'}</h1>
+        <span class="sg-saved"><${XIcon} name="check" size=${14} />Saved on phone · works offline</span>
         <p class="x-sub">${beat && beat.length ? (t.sides ? beat.map((s) => s[0].toUpperCase() + s.slice(1)).join(' and ') + ' side' + (beat.length > 1 ? 's' : '') + ' set a new best.' : 'New personal best: ' + fmtVal(t, saved.value) + '.') : g ? 'This is your new ghost to chase next time.' : 'This is your ghost. Beat it next time.'}</p>
       </div>
       ${j ? html`<div class="x-card" style="flex-direction:row;gap:12px;align-items:center"><span class=${'x-badge ' + (j.status === 'even' ? '' : j.status)}><${XIcon} name=${j.status === 'even' ? 'check' : 'alert'} size=${18} /></span><div style="flex:1"><b>${STATUS_WORD[j.status]}</b><div class="x-small x-muted">${j.text}</div></div></div>` : null}
@@ -381,6 +401,7 @@ function Mirror() {
     <div class="x-head"><div><div class="x-over">Left and right, head to toe</div><h1 class="x-title">Mirror</h1></div><button class="x-link x-noprint" onClick=${() => window.print()}><${XIcon} name="print" size=${20} />PDF</button></div>
     <p class="x-sub" style="padding:0 4px">A glow shows where one side is weaker. That's where you're losing power.</p>
     <${BodyMirror} rows=${rows} groin=${sj ? sj.status : null} />
+    ${rows.some((x) => x.tested && x.status !== 'even') ? html`<a class="x-btn soft x-noprint" href="#/warmup"><${XIcon} name="fire" size=${20} />Warm up for these gaps</a>` : null}
     <div class="x-section">The numbers</div>
     <${MirrorBoard} rows=${rows} />
     ${flagged.length || (sj && sj.status === 'work') ? html`<div class="x-list">${flagged.map((x) => html`<a class="x-row" href=${'#/library?area=' + x.area}><span class=${'x-badge ' + x.status}><${XIcon} name="down" size=${16} /></span><div class="grow"><b>${x.text}</b><span class="x-small x-muted">${T.byKey(x.test).name} · ${ago(x.date + 'T12:00:00')} · exercises</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`)}
@@ -405,7 +426,7 @@ export function Library({ query }) {
     <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
     <div class="x-head"><div><div class="x-over">Basic equipment</div><h1 class="x-title">Library</h1></div></div>
     <label class="x-field"><span class="x-noprint" style="position:absolute;left:-9999px">Search exercises</span><input class="x-input" style="background:#fff" type="search" placeholder="Search exercises" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
-    <div class="x-chips"><button type="button" class=${'x-chip' + (!area ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(!area)} onClick=${() => setArea('')}>All</button>${Object.entries(LIB_AREAS).map(([k, v]) => html`<button type="button" class=${'x-chip' + (area === k ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(area === k)} onClick=${() => setArea(k)}>${v}</button>`)}</div>
+    <div class="x-chips"><button type="button" class=${'x-chip' + (!area ? ' tint' : '')} style="border:0;min-height:48px" aria-pressed=${String(!area)} onClick=${() => setArea('')}>All</button>${Object.entries(LIB_AREAS).map(([k, v]) => html`<button type="button" class=${'x-chip' + (area === k ? ' tint' : '')} style="border:0;min-height:48px" aria-pressed=${String(area === k)} onClick=${() => setArea(k)}>${v}</button>`)}</div>
     <div class="x-list">${list.length ? list.map((x) => html`<a class="x-row" href=${'#/library/' + x.key}><div class="grow"><b>${x.name}</b><span class="x-small x-muted">${LIB_AREAS[x.area]} · ${x.dose} · ${x.equipment}</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`) : html`<div class="x-row"><span class="x-muted">No exercises match.</span></div>`}</div>
     <p class="x-small x-dim" style="padding:0 4px">Doses are a starting point. Your coach or physio can change them. Stop if anything hurts sharply.</p>
   </div>`;
@@ -433,6 +454,111 @@ function Session({ planId }) {
   return html`<${SessionCoach} items=${items} title=${'Programme from ' + plan.coachName} backHref="#/plans" onFinish=${async () => { if (!planStatus(plan).today) await tickSession(plan); }} />`;
 }
 
+// Smart warm-up from the Mirror, run with the voice coach.
+function Warmup() {
+  const a = myAthlete();
+  if (!a) return html`<${NoAthlete} />`;
+  const w = buildWarmup(T.mirror(resultsFor(a.id)));
+  return html`<${SessionCoach} items=${w.items} backHref="#/train" doneText="Warm-up done. You're ready to train." intro=${'About ' + w.minutes + ' minutes. ' + (w.targeted.length ? 'Extra drills for: ' + w.targeted.join(', ') + '. ' : '') + 'Warm-ups like this cut injuries by about a third in team-sport studies (FIFA 11+).'}
+    title=${'Smart warm-up' + (w.targeted.length ? ' · ' + w.targeted.join(', ') : '')} onFinish=${async () => {}} />`;
+}
+
+// Return-to-run ladder set by the physio: unlock the next stage when the pass rule is met.
+function Ladder() {
+  const a = myAthlete();
+  const [f, setF] = useState({ painDuring: null, painMorning: null, limp: null });
+  const [res, setRes] = useState(null);
+  if (!a) return html`<${NoAthlete} />`;
+  const lad = ladderFor(a.id);
+  if (!lad) return html`<div class="x-page"><div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div><h1 class="x-title">Back to running</h1><div class="x-card"><p class="x-muted">Your physio sets a return-to-run ladder after an injury. It shows up here.</p></div></div>`;
+  const st = ladderStatus(lad);
+  const stage = stageByKey(st.current);
+  const lsi = hopLsi(resultsFor(a.id), today());
+  const scale = (k, label) => html`<b>${label}</b><div class="x-scale eleven" role="group" aria-label=${label}>${Array.from({ length: 11 }, (_, i) => html`<button type="button" aria-pressed=${String(f[k] === i)} onClick=${() => setF(Object.assign({}, f, { [k]: i }))}><b>${i}</b></button>`)}</div>`;
+  const submit = async () => {
+    const j = judgeAttempt(stage, { painDuring: f.painDuring, painMorning: f.painMorning, limp: !!f.limp }, lsi);
+    if (f.painDuring == null || f.painMorning == null || f.limp == null) { setRes({ pass: false, reasons: ['Answer all three questions.'], unsaved: true }); return; }
+    await logLadder(lad, { stage: stage.key, painDuring: f.painDuring, painMorning: f.painMorning, limp: f.limp, hopLsi: lsi, pass: j.pass });
+    setRes(j); setF({ painDuring: null, painMorning: null, limp: null });
+    if (j.pass) { buzz([18, 60, 28, 60, 40]); toast('Stage passed. Next one unlocked.'); }
+  };
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
+    <div><div class="x-over">Set by ${lad.proName}</div><h1 class="x-title">Back to running</h1></div>
+    ${lad.note ? html`<div class="x-note">“${lad.note}”</div>` : null}
+    <ol class="sg-ladder">${lad.stages.map((k, i) => { const s = stageByKey(k); const state = i < st.index ? 'done' : i === st.index ? 'now' : 'locked'; return html`<li class=${state}><span class="sg-rung">${state === 'done' ? html`<${XIcon} name="check" size=${16} />` : i + 1}</span><div><b>${s.name}</b><span class="x-small x-muted">${s.dose}${s.hop ? ' · hop test 90%+' : ''}</span></div>${state === 'locked' ? html`<span class="x-small x-dim">Locked</span>` : null}</li>`; })}</ol>
+    ${res ? html`<div class=${res.pass ? 'x-note' : 'x-err'} role="status">${res.pass ? 'Passed. ' + (st.done ? 'That was the last stage. Talk to your physio about full training.' : 'Next stage unlocked.') : (res.unsaved ? '' : 'Stay on this stage for now. ') + res.reasons.join(' ')}</div>` : null}
+    ${st.done ? html`<div class="x-card"><h2>Ladder complete</h2><p class="x-muted">Every stage passed. Keep doing your Mirror tests to stay even.</p></div>`
+      : html`<div class="x-card" style="gap:12px"><div class="x-kicker">Log stage ${st.index + 1}: ${stage.name}</div>
+        <p class="x-small x-muted">Do the stage, then fill this in the next morning. It passes with pain ${PAIN_OK}/10 or less${stage.hop ? ' and a hop test where the weaker leg reaches ' + HOP_OK + '% or more' : ''}.</p>
+        ${stage.hop ? html`<div class="x-chips"><span class=${'x-chip ' + (lsi == null ? '' : lsi >= HOP_OK ? 'tint' : 'work')}>${lsi == null ? 'No hop test in 14 days' : 'Hop: weaker leg ' + lsi + '%'}</span><a class="x-chip tint" href="#/tests/hop">Do the hop test</a></div>` : null}
+        ${scale('painDuring', 'Highest pain during, 0 to 10')}
+        ${scale('painMorning', 'Pain this morning, 0 to 10')}
+        <b>Any limping or swelling?</b><${XSeg} label="Limping or swelling" value=${f.limp} options=${yesNo} onChange=${(v) => setF(Object.assign({}, f, { limp: v }))} />
+        <button class="x-btn" onClick=${submit}>Check this stage</button></div>`}
+    ${lad.log && lad.log.length ? html`<div class="x-section">Your log</div><div class="x-list">${lad.log.slice().reverse().map((x) => html`<div class="x-row"><span class=${'x-badge ' + (x.pass ? '' : 'work')}><${XIcon} name=${x.pass ? 'check' : 'alert'} size=${16} /></span><div class="grow"><b>${stageByKey(x.stage).name}</b><span class="x-small x-muted">${x.date} · pain ${x.painDuring} then ${x.painMorning}${x.limp ? ' · limp or swelling' : ''}</span></div></div>`)}</div>` : null}
+  </div>`;
+}
+
+// Growth-spurt guard: under-18s see a likely range for their fastest growth and what it means for load.
+function Growth() {
+  const a = myAthlete();
+  const [f, setF] = useState(() => { try { return JSON.parse(localStorage.getItem('sg-growth-' + (a && a.id)) || 'null') || {}; } catch (e) { return {}; } });
+  const [out, setOut] = useState(null);
+  if (!a) return html`<${NoAthlete} />`;
+  const set = (k) => (v) => setF(Object.assign({}, f, { [k]: v }));
+  const run = () => {
+    const born = f.born ? Date.parse(f.born + '-15') : NaN;
+    const age = isFinite(born) ? (Date.now() - born) / (365.25 * 864e5) : NaN;
+    const g = growthGuide({ sex: a.sex, age, heightCm: f.h, sittingCm: f.sh, weightKg: f.w });
+    setOut(g);
+    if (!g.errors) { try { localStorage.setItem('sg-growth-' + a.id, JSON.stringify(f)); } catch (e) { /* private mode */ } }
+  };
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/me"><${XIcon} name="back" size=${20} />Me</a><span class="sg-saved"><${XIcon} name="check" size=${14} />Saved on phone</span></div>
+    <div><div class="x-over">For ages 8 to 17</div><h1 class="x-title">Growth-spurt guard</h1></div>
+    <p class="x-sub" style="padding:0 4px">During the fastest growth, bones and tendons are easier to hurt. This estimates when yours is, so training can go lighter at the right time.</p>
+    <div class="x-card" style="gap:12px">
+      <${XField} label="Month you were born" type="month" value=${f.born || ''} onInput=${set('born')} />
+      <${XField} label="Height, cm (no shoes)" type="number" inputmode="decimal" value=${f.h || ''} onInput=${set('h')} />
+      <${XField} label="Sitting height, cm (seat to top of head)" type="number" inputmode="decimal" value=${f.sh || ''} onInput=${set('sh')} />
+      <${XField} label="Weight, kg" type="number" inputmode="decimal" value=${f.w || ''} onInput=${set('w')} />
+      <${ReadAloud} label="How to measure" text="Height: stand tall against a wall with no shoes, heels together. Sitting height: sit on a flat chair against the wall, sit tall, and measure from the seat to the top of your head." />
+      <button class="x-btn" onClick=${run}>Check my growth</button>
+    </div>
+    ${out && out.errors ? html`<div class="x-err" role="alert">${out.errors.join(' ')}</div>` : null}
+    ${out && !out.errors ? html`<div class=${'x-card' + (out.phase === 'now' ? '' : '')} style=${out.phase === 'now' ? 'box-shadow:inset 0 0 0 1.5px var(--x-watch)' : ''}>
+      <div class="x-kicker" style=${out.phase === 'now' ? 'color:var(--x-watch-text)' : ''}>${out.phase === 'now' ? 'Growth spurt likely now' : out.phase === 'before' ? 'Growth spurt likely ahead' : 'Growth spurt likely passed'}</div>
+      <h2>Fastest growth: about age ${out.from} to ${out.to}</h2>
+      <p class="x-muted">${out.text}</p>
+      <p class="x-small x-dim">Estimated with the Mirwald equation (2002). It can be a year or more out, more so for early or late developers. Remeasure every 3 months.</p>
+      <${ReadAloud} text=${out.text} />
+    </div>` : null}
+  </div>`;
+}
+
+// Private energy check. Answers stay on this phone and are not sent to anyone.
+function Energy() {
+  const a = myAthlete();
+  const [ans, setAns] = useState({});
+  const [out, setOut] = useState(null);
+  if (!a) return html`<${NoAthlete} />`;
+  const age = a.dob ? Math.floor((Date.now() - Date.parse(a.dob)) / (365.25 * 864e5)) : 18;
+  const qs = questionsFor(a.sex, age);
+  const check = () => { const r = energyResult(ans, a.sex, age); setOut(r || { missing: true }); };
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/me"><${XIcon} name="back" size=${20} />Me</a><span class="sg-saved"><${XIcon} name="check" size=${14} />Private</span></div>
+    <div><div class="x-over">Only you see this</div><h1 class="x-title">Energy check</h1></div>
+    <p class="x-sub" style="padding:0 4px">When training uses more energy than your body gets, health and performance drop. These are the common warning signs. Your answers are not saved or sent.</p>
+    ${qs.map((q) => html`<div class="x-card"><b>${q.text}</b><${XSeg} label=${q.text} value=${ans[q.key]} options=${yesNo} onChange=${(v) => setAns(Object.assign({}, ans, { [q.key]: v }))} /></div>`)}
+    <button class="x-btn" onClick=${check}>See my result</button>
+    ${out && out.missing ? html`<div class="x-err" role="alert">Answer every question first.</div>` : null}
+    ${out && !out.missing ? html`<div class="x-card" style=${out.level === 'talk' ? 'box-shadow:inset 0 0 0 1.5px var(--x-work)' : ''}><div class="x-kicker">${out.level === 'talk' ? 'Talk to your physio' : out.level === 'watch' ? 'Keep an eye on it' : 'No warning signs'}</div><p>${out.text}</p>
+      <p class="x-small x-dim">Based on the warning signs in the IOC statement on low energy in sport (2023) and the LEAF-Q and LEAM-Q questionnaires.</p>
+      ${out.level === 'talk' ? html`<a class="x-btn soft sm" href="#/chat">Message your physio</a>` : null}</div>` : null}
+  </div>`;
+}
+
 // ---------- plans and profile ----------
 function Plans() {
   const a = myAthlete();
@@ -458,10 +584,22 @@ function Me() {
   const u = me();
   const a = myAthlete();
   const others = store.getState().users.filter((x) => x.id !== u.id);
+  const [large, setLargeState] = useState(isLarge());
+  const setLarge = (on) => { setLargeText(on); setLargeState(on); };
   return html`<div class="x-page">
     <div style="display:flex;gap:14px;align-items:center;padding:12px 4px 0"><span class="x-avatar" style="width:64px;height:64px;font-size:26px">${initial(u.name)}</span><div><h1 class="x-title md">${u.name}</h1><p class="x-muted">${a ? [a.position || 'Athletics', a.dob ? a.dob.slice(0, 4) : ''].filter(Boolean).join(' · ') : ''}</p></div></div>
     <div class="x-section">Your coaches and physios</div>
     <${MyPros} />
+    <div class="x-section">Health checks</div>
+    <div class="x-list">
+      <a class="x-row" href="#/growth"><span class="x-badge"><${XIcon} name="up" size=${18} /></span><div class="grow"><b>Growth-spurt guard</b><span class="x-small x-muted">Under 18: when is your fastest growth?</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+      <a class="x-row" href="#/energy"><span class="x-badge"><${XIcon} name="strong" size=${18} /></span><div class="grow"><b>Private energy check</b><span class="x-small x-muted">Warning signs of low energy. Stays on your phone.</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
+    </div>
+    <div class="x-section">Settings</div>
+    <div class="x-list">
+      <button class="x-row" type="button" aria-pressed=${String(large)} onClick=${() => setLarge(!large)}><span class="x-badge"><span style="font-weight:800">Aa</span></span><div class="grow"><b>Large text</b><span class="x-small x-muted">${large ? 'On: bigger text and buttons' : 'Off'}</span></div><span class=${'sg-switch' + (large ? ' on' : '')} aria-hidden="true"><i></i></span></button>
+      <${VoiceRow} />
+    </div>
     <div class="x-list">
       <a class="x-row" href="#/plans"><div class="grow"><b>Your programmes</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
       <a class="x-row" href="#/feed?show=saved"><div class="grow"><b>Saved posts</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>

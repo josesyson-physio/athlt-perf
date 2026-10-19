@@ -129,3 +129,20 @@ export async function tickSession(plan) {
   await store.saveRecord('progress', { id, planId: plan.id, athleteId: plan.athleteId, date: today });
   return true;
 }
+
+// ---------- return-to-run ladder ----------
+// One ladder per athlete at a time; the newest is the live one.
+export const ladderFor = (athleteId) => store.getState().ladders.filter((l) => l.athleteId === athleteId && !l.stopped).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0] || null;
+
+export async function startLadder(athleteId, athleteUserId, stages, note) {
+  const u = me();
+  if (!u || !isCoachRole(u.role)) throw new Error('Only a coach or physio can set a ladder.');
+  if (!stages.length) throw new Error('Pick at least one stage.');
+  const old = ladderFor(athleteId);
+  if (old) await store.saveRecord('ladders', Object.assign({}, old, { stopped: true }));
+  return store.saveRecord('ladders', { id: store.newId('LD'), athleteId, athleteUserId, proId: u.id, proName: u.name, proRole: u.role, stages, note: (note || '').trim(), log: [] });
+}
+
+export async function logLadder(ladder, entry) {
+  return store.saveRecord('ladders', Object.assign({}, ladder, { log: (ladder.log || []).concat([Object.assign({ date: dayIso(new Date()) }, entry)]) }));
+}

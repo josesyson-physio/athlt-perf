@@ -33,6 +33,12 @@ export function ReadAloud({ text, label }) {
   return html`<button type="button" class="x-btn ghost sm sg-read" aria-pressed=${String(on)} onClick=${go}><${XIcon} name=${on ? 'stop' : 'speaker'} size=${18} />${on ? 'Stop reading' : label || 'Read aloud'}</button>`;
 }
 
+export function VoiceRow() {
+  const [on, setOn] = useState(isVoiceOn());
+  if (!canSpeak()) return null;
+  return html`<button class="x-row" type="button" aria-pressed=${String(on)} onClick=${() => { setVoice(!on); setOn(!on); if (!on) speak('Voice coach on.', { force: true }); }}><span class="x-badge"><${XIcon} name="speaker" size=${18} /></span><div class="grow"><b>Voice coach</b><span class="x-small x-muted">${on ? 'On: tests and sessions speak to you' : 'Off'}</span></div><span class=${'sg-switch' + (on ? ' on' : '')} aria-hidden="true"><i></i></span></button>`;
+}
+
 export function VoiceSwitch() {
   const [on, setOn] = useState(isVoiceOn());
   if (!canSpeak()) return null;
@@ -208,7 +214,7 @@ export function TestTool({ t, side, onResult }) {
 
 // Voice coach for a programme session: reads each exercise, runs a spoken rest timer between
 // exercises, and ticks the session off at the end.
-export function SessionCoach({ items, title, onFinish, backHref }) {
+export function SessionCoach({ items, title, onFinish, backHref, intro, doneText }) {
   const [i, setI] = useState(-1); const [rest, setRest] = useState(0); const [done, setDone] = useState(false);
   const until = useRef(0);
   useHushOnLeave();
@@ -216,14 +222,14 @@ export function SessionCoach({ items, title, onFinish, backHref }) {
   const x = items[i];
   const read = (n) => { const y = items[n]; if (y) speak('Exercise ' + (n + 1) + ' of ' + items.length + '. ' + y.name + '. ' + y.dose + '. ' + y.steps.join(' ')); };
   const goTo = (n) => { setRest(0); if (n >= items.length) { finish(); return; } setI(n); read(n); };
-  const finish = async () => { setDone(true); setRest(0); beep(GO, 500); buzz([18, 60, 28, 60, 40]); speak('Session done. Great work. It has been ticked off.'); await onFinish(); };
+  const finish = async () => { setDone(true); setRest(0); beep(GO, 500); buzz([18, 60, 28, 60, 40]); speak(doneText || 'Session done. Great work. It has been ticked off.'); await onFinish(); };
   useTick(rest > 0, () => {
     const l = Math.ceil((until.current - Date.now()) / 1000);
     if (l !== rest) { setRest(Math.max(0, l)); if (l === 10) speak('10 seconds.'); if (l <= 3 && l > 0) beep(LO, 90); }
     if (l <= 0) { beep(GO, 300); buzz(30); speak('Rest over.'); setRest(0); }
   }, 200);
   const startRest = (sec) => { until.current = Date.now() + sec * 1000; setRest(sec); speak('Rest ' + sec + ' seconds.'); };
-  if (done) return html`<div class="x-page plain"><div style="padding:48px 4px 8px;display:flex;flex-direction:column;gap:10px"><span class="x-badge" style="width:56px;height:56px;border-radius:18px"><${XIcon} name="star" size=${28} /></span><h1 class="x-title">Session done</h1><p class="x-sub">Ticked off in your programme. Rest well.</p></div><a class="x-btn" href=${backHref}>Back to programme</a></div>`;
+  if (done) return html`<div class="x-page plain"><div style="padding:48px 4px 8px;display:flex;flex-direction:column;gap:10px"><span class="x-badge" style="width:56px;height:56px;border-radius:18px"><${XIcon} name="star" size=${28} /></span><h1 class="x-title">${doneText ? 'Done' : 'Session done'}</h1><p class="x-sub">${doneText || 'Ticked off in your programme. Rest well.'}</p></div><a class="x-btn" href=${backHref}>Back</a></div>`;
   return html`<div class="x-page plain">
     <div class="x-topbar"><a class="x-link" href=${backHref}>Close</a><${VoiceSwitch} /></div>
     <div><div class="x-over">${title}</div><h1 class="x-title md">${x ? x.name : 'Voice coach'}</h1></div>
@@ -232,7 +238,7 @@ export function SessionCoach({ items, title, onFinish, backHref }) {
       <div class="x-card sg-tool"><div class="x-kicker"><${XIcon} name="timer" size=${16} /> Rest</div><${Big} sub=${rest ? 'Breathe. The phone tells you when to go.' : 'Between sets or before the next exercise.'}>${fmtClock(rest * 1000)}<//>
         <div class="x-btns">${[45, 90].map((sec) => html`<button class="x-btn ghost sm" style="width:100%" onClick=${() => startRest(sec)}>Rest ${sec} s</button>`)}</div></div>
       <div class="x-btns"><button class="x-btn ghost" onClick=${() => read(i)}><${XIcon} name="speaker" size=${18} />Read again</button><button class="x-btn" onClick=${() => goTo(i + 1)}>${i + 1 < items.length ? 'Next exercise' : 'Finish'}<${XIcon} name="next" size=${18} /></button></div>`
-    : html`<div class="x-card"><p class="x-muted">${items.length} exercises. The phone reads each one out, times your rests, and ticks the session off when you finish.</p></div>
+    : html`<div class="x-card"><p class="x-muted">${intro || items.length + ' exercises. The phone reads each one out, times your rests, and ticks the session off when you finish.'}</p></div>
       <div class="x-list">${items.map((y, n) => html`<div class="x-row"><span class="x-avatar soft" style="width:32px;height:32px;font-size:14px">${n + 1}</span><div class="grow"><b>${y.name}</b><span class="x-small x-muted">${y.dose}</span></div></div>`)}</div>
       <button class="x-btn" onClick=${() => goTo(0)}><${XIcon} name="play" size=${20} />Start session</button>`}
   </div>`;

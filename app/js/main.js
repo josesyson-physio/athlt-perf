@@ -3,6 +3,7 @@ import { html, render, useState, useEffect } from './vendor/preact-htm.js';
 import * as store from './store.js';
 import { Toast } from './ui.js';
 import { initPwa } from './pwa.js';
+import { initAccess } from './access.js';
 import { Welcome, SignUp, SignIn } from './pages/welcome.js';
 import { AthleteApp } from './pages/athlete.js';
 import { CoachApp, COACH_PATHS } from './pages/coach.js';
@@ -49,3 +50,4 @@ function Root() {
 render(html`<${Root} />`, document.getElementById('root'));
 store.init();
 initPwa();
+initAccess();
