@@ -55,3 +55,13 @@ test('impossible values are refused before saving', () => {
   assert.deepEqual(T.check('calf', { left: 20, right: 22 }), []);
   assert.ok(T.check('calf', { left: '', right: 22 })[0].includes('left'));
 });
+
+test('reaction start: phone-measured, lower is better, guesses rejected', () => {
+  const t = T.byKey('reaction');
+  assert.equal(t.lowerBetter, true);
+  assert.ok(T.check('reaction', { value: 50 }).length);
+  assert.equal(T.check('reaction', { value: 240 }).length, 0);
+  assert.equal(T.judge('reaction', { value: 240 }), null);
+  const h = [r('reaction', '2026-09-01', { value: 260 }), r('reaction', '2026-10-01', { value: 240 })];
+  assert.equal(T.ghost(h, 'reaction').value, 240);
+});

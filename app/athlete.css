@@ -486,3 +486,21 @@ body[data-ui="x"] { background: var(--x-page, #F4F4F6); }
 .sg-key.even { background: var(--x-ok); }
 @media (prefers-reduced-motion: reduce) { .sg-zone.work .glow { animation: none; } }
 @media print { .sg-body { background: #fff; } }
+
+/* test and session helpers */
+.sg-tool { align-items: stretch; gap: 12px; text-align: center; }
+.sg-tool .x-kicker { display: flex; align-items: center; gap: 6px; justify-content: center; }
+.sg-clock { font-size: 64px; font-weight: 750; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.sg-clock small { font-size: 20px; font-weight: 650; letter-spacing: -.01em; color: var(--x-muted); margin-left: 4px; }
+.x-btn.sg-stop { background: linear-gradient(180deg, color-mix(in srgb, var(--x-work) 85%, #fff), var(--x-work)); box-shadow: 0 8px 20px -8px var(--x-work); min-height: 64px; font-size: 20px; }
+.sg-lap { min-height: 180px; border: 0; border-radius: 28px; background: radial-gradient(120% 120% at 30% 20%, color-mix(in srgb, var(--x-tint) 70%, #fff), var(--x-tint)); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; box-shadow: 0 14px 30px -12px var(--x-tint); touch-action: manipulation; }
+.sg-lap b { font-size: 34px; letter-spacing: .12em; }
+.sg-lap span { font-size: 18px; opacity: .85; font-weight: 700; }
+.sg-lap:active { transform: scale(.98); }
+.sg-pad { min-height: 220px; border: 0; border-radius: 28px; background: var(--x-card-2); color: var(--x-muted); font: 800 40px var(--x-font); letter-spacing: .06em; touch-action: manipulation; user-select: none; -webkit-user-select: none; box-shadow: inset 0 0 0 1px var(--x-line-2); }
+.sg-pad.wait { background: var(--x-ink); color: rgba(255,255,255,.5); }
+.sg-pad.go { background: var(--x-ok); color: #06240F; }
+.sg-pad.done { background: var(--x-tint-soft); color: var(--x-tint); }
+.sg-read { gap: 6px; }
+.sg-read[aria-pressed="true"] { background: var(--x-tint-soft); color: var(--x-tint) !important; border-color: transparent; }
+@media (prefers-reduced-motion: reduce) { .sg-lap:active { transform: none; } }

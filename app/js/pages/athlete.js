@@ -12,6 +12,7 @@ import { MirrorBoard, BodyMirror, ExerciseRows, Spark } from './parts.js';
 import { Logo, Wordmark } from '../logo.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
+import { ReadAloud, TestTool, VoiceSwitch, SessionCoach } from './tools.js';
 
 const T = globalThis.MotionPlusTests;
 const M = globalThis.MotionPlusMonitor;
@@ -24,7 +25,7 @@ const TABS = [
   { path: '/chat', label: 'Chat', icon: 'chat' },
   { path: '/me', label: 'Me', icon: 'me' },
 ];
-const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress'];
+const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress', 'session'];
 const ME = ['me', 'find', 'pro'];
 
 export function AthleteApp({ r }) {
@@ -47,9 +48,10 @@ export function AthleteApp({ r }) {
   else if (a === 'chat' && !b) page = html`<${ChatList} />`;
   else if (a === 'chat') page = html`<${ChatThread} key=${b} otherId=${b} />`;
   else if (a === 'plans') page = html`<${Plans} />`;
+  else if (a === 'session') page = html`<${Session} key=${b} planId=${b} />`;
   else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go home</a></div></div>`;
   const active = (p) => (p === '/' ? !a || a === 'pulse' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
-  const hideTabs = a === 'pulse' || (a === 'tests' && b) || (a === 'chat' && b);
+  const hideTabs = a === 'pulse' || a === 'session' || (a === 'tests' && b) || (a === 'chat' && b);
   const unread = unreadFor(me());
   return html`<div class="x">${page}
     ${hideTabs ? null : html`<nav class="x-tabs" aria-label="Main">${TABS.map((t) => html`<a href=${'#' + t.path} class=${active(t.path) ? 'on' : ''} aria-current=${active(t.path) ? 'page' : null}><${XIcon} name=${t.icon} size=${24} />${t.label}${t.path === '/chat' && unread ? html`<span class="x-dot">${unread}</span>` : null}</a>`)}</nav>`}
@@ -82,7 +84,7 @@ function thisWeek(checkins) {
     return { l, on: days.has(iso), today: iso === today() };
   });
 }
-const fmtVal = (t, v) => (v == null || v === '' ? '–' : v + (t.unit === 'cm' || t.unit === 'm' || t.unit === 's' ? ' ' + t.unit : ''));
+const fmtVal = (t, v) => (v == null || v === '' ? '–' : v + (['cm', 'm', 's', 'ms'].includes(t.unit) ? ' ' + t.unit : ''));
 const unitWord = (t) => (t.unit === 'pain 0 to 10' ? 'pain' : t.unit);
 
 // The test to do next: never done first, then the one done longest ago.
@@ -149,7 +151,8 @@ function ProgrammeCard({ plan }) {
   return html`<div class="x-card" style="gap:12px">
     <a href="#/plans" style="display:flex;gap:12px;align-items:center;color:inherit"><span class="x-avatar soft">${initial(plan.coachName)}</span><div style="flex:1;min-width:0"><div class="x-kicker">${st.finished ? 'Programme done' : 'Week ' + st.week + ' of ' + st.weeks}</div><b>Programme from ${plan.coachName}</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
     <div class="x-sessions" aria-label=${st.thisWeek + ' of ' + st.perWeek + ' sessions this week'}>${Array.from({ length: st.perWeek }, (_, i) => html`<i class=${i < st.thisWeek ? 'on' : ''}></i>`)}<span class="x-small x-muted">${st.thisWeek}/${st.perWeek} this week · ${st.done}/${st.total} total</span></div>
-    <button class=${'x-btn' + (st.today ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); if (on) buzz([18, 60, 28]); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
+    ${!st.today && plan.exercises && plan.exercises.length ? html`<a class="x-btn" href=${'#/session/' + plan.id}><${XIcon} name="speaker" size=${20} />Start with voice coach</a>` : null}
+    <button class=${'x-btn' + (st.today || (plan.exercises && plan.exercises.length) ? ' soft' : '')} onClick=${async () => { const on = await tickSession(plan); if (on) buzz([18, 60, 28]); toast(on ? 'Session done. Nice work.' : 'Session unticked.'); }}><${XIcon} name="check" size=${20} />${st.today ? "Today's session done" : "Done today's session"}</button>
   </div>`;
 }
 
@@ -341,7 +344,10 @@ function TestRun({ testKey }) {
     <div class="x-topbar"><a class="x-link" href="#/train">Cancel</a><span class="x-small x-dim" style="font-weight:600">${t.equipment.join(' · ')}</span></div>
     <h1 class="x-title md">${t.name}</h1>
     <ol style="margin:0;padding-left:20px;color:var(--x-muted);display:grid;gap:6px">${t.steps.map((s) => html`<li>${s}</li>`)}</ol>
+    <div class="x-chips"><${ReadAloud} text=${t.name + '. You need: ' + t.equipment.join(', ') + '. ' + t.steps.join(' ')} /><${VoiceSwitch} /></div>
+    ${t.phone ? html`<div class="x-note">Phone-measured. Screens add a small delay of their own, so compare only with your own results on this phone.</div>` : null}
     ${t.sides ? html`<${XSeg} label="Side" value=${side} onChange=${setSide} options=${[{ value: 'left', label: 'Left' + (has(e.left) ? ' · ' + e.left : '') }, { value: 'right', label: 'Right' + (has(e.right) ? ' · ' + e.right : '') }]} />` : null}
+    <${TestTool} t=${t} side=${side} onResult=${(v) => setE((cur) => Object.assign({}, cur, { [k]: String(v) }))} />
     <div class="x-card" style="align-items:center;gap:6px;padding:26px 18px">
       ${counting ? html`<div class="x-huge" aria-live="polite">${e[k] === '' ? 0 : e[k]}</div><div class="x-muted">${unitWord(t)}</div>`
       : html`<label class="x-field" style="width:100%;text-align:center"><span>${(t.sides ? side[0].toUpperCase() + side.slice(1) + ' side' : 'Result') + ', ' + t.unit}</span><input class="x-input" style="font-size:48px;font-weight:800;text-align:center;min-height:90px;letter-spacing:-.04em" type="number" inputmode="decimal" step="any" value=${e[k]} onInput=${(ev) => setE(Object.assign({}, e, { [k]: ev.target.value }))} /></label>`}
@@ -412,9 +418,19 @@ export function Exercise({ id }) {
     <div class="x-topbar"><a class="x-link" href=${'#/library?area=' + x.area}><${XIcon} name="back" size=${20} />Library</a></div>
     <div><div class="x-over">${LIB_AREAS[x.area]}</div><h1 class="x-title md">${x.name}</h1></div>
     <div class="x-chips"><span class="x-chip tint">${x.dose}</span><span class="x-chip">${x.equipment}</span></div>
+    <${ReadAloud} text=${x.name + '. ' + x.dose + '. ' + x.steps.join(' ')} />
     <div class="x-list">${x.steps.map((s, i) => html`<div class="x-row"><span class="x-avatar soft" style="width:32px;height:32px;font-size:14px">${i + 1}</span><div class="grow">${s}</div></div>`)}</div>
     ${forArea(x.area).filter((y) => y.key !== x.key).length ? html`<div class="x-section">More for ${LIB_AREAS[x.area].toLowerCase()}</div><div class="x-list">${forArea(x.area).filter((y) => y.key !== x.key).map((y) => html`<a class="x-row" href=${'#/library/' + y.key}><div class="grow"><b>${y.name}</b><span class="x-small x-muted">${y.dose}</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`)}</div>` : null}
   </div>`;
+}
+
+// Voice-coached session from a programme.
+function Session({ planId }) {
+  const a = myAthlete();
+  const plan = a ? plansFor(a.id).find((p) => p.id === planId) : null;
+  if (!plan) return html`<div class="x-page plain"><div class="x-card"><h2>Programme not found</h2><a href="#/plans">Your programmes</a></div></div>`;
+  const items = (plan.exercises || []).map((k) => exercise(k)).filter(Boolean);
+  return html`<${SessionCoach} items=${items} title=${'Programme from ' + plan.coachName} backHref="#/plans" onFinish=${async () => { if (!planStatus(plan).today) await tickSession(plan); }} />`;
 }
 
 // ---------- plans and profile ----------
