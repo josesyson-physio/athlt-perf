@@ -98,7 +98,7 @@ function LadderCard({ rep }) {
     ${lad ? html`<b>${st.done ? 'All stages passed' : 'On stage ' + (st.index + 1) + ' of ' + st.total + ': ' + stageByKey(st.current).name}</b>
       <div class="x-sessions">${lad.stages.map((k, i) => html`<i class=${i < st.index ? 'on' : ''} title=${stageByKey(k).name}></i>`)}</div>
       ${(lad.log || []).slice(-3).reverse().map((x) => html`<div class="x-small x-muted">${x.date} · ${stageByKey(x.stage).name}: ${x.pass ? 'passed' : 'not yet'} · pain ${x.painDuring} then ${x.painMorning}${x.limp ? ', limp or swelling' : ''}${x.hopLsi != null ? ' · hop ' + x.hopLsi + '%' : ''}</div>`)}` : html`<p class="x-small x-muted">After an injury, give a clear way back. Each stage unlocks only with pain 2/10 or less during and the next morning, and from strides on, a hop test with the weaker leg at 90% or more.</p>`}
-    ${open ? html`<div class="x-field"><span>Stages</span><div class="x-chips">${STAGES.map((s) => html`<button type="button" class=${'x-chip' + (pick.includes(s.key) ? ' tint' : '')} style="border:0;min-height:40px" aria-pressed=${String(pick.includes(s.key))} onClick=${() => setPick(pick.includes(s.key) ? pick.filter((k) => k !== s.key) : pick.concat([s.key]))}>${s.name}</button>`)}</div></div>
+    ${open ? html`<div class="x-field"><span>Stages</span><div class="x-chips">${STAGES.map((s) => html`<button type="button" class=${'x-chip' + (pick.includes(s.key) ? ' tint' : '')} style="border:0;min-height:48px" aria-pressed=${String(pick.includes(s.key))} onClick=${() => setPick(pick.includes(s.key) ? pick.filter((k) => k !== s.key) : pick.concat([s.key]))}>${s.name}</button>`)}</div></div>
       <${XField} label="Note for the athlete (optional)" type="textarea" rows=${2} value=${note} onInput=${setNote} placeholder="For example: one stage every 2 to 3 days, ice after if sore" />
       ${err ? html`<div class="x-err">${err}</div>` : null}
       <button class="x-btn" onClick=${start}>Send ladder to ${firstName(rep.athleteName)}</button>`
@@ -111,9 +111,9 @@ function ExercisePicker({ chosen, onChange, suggest }) {
   const pick = (k) => onChange(chosen.includes(k) ? chosen.filter((x) => x !== k) : chosen.concat([k]));
   const list = EXERCISES.filter((x) => (!q ? suggest.includes(x.area) : (x.name + ' ' + LIB_AREAS[x.area]).toLowerCase().includes(q.toLowerCase())));
   return html`<div class="x-field"><span>Exercises from the library</span>
-    ${chosen.length ? html`<div class="x-chips">${chosen.map((k) => exercise(k)).filter(Boolean).map((x) => html`<button type="button" class="x-chip tint" style="border:0;min-height:40px" aria-label=${'Remove ' + x.name} onClick=${() => pick(x.key)}>${x.name} ×</button>`)}</div>` : null}
+    ${chosen.length ? html`<div class="x-chips">${chosen.map((k) => exercise(k)).filter(Boolean).map((x) => html`<button type="button" class="x-chip tint" style="border:0;min-height:48px" aria-label=${'Remove ' + x.name} onClick=${() => pick(x.key)}>${x.name} ×</button>`)}</div>` : null}
     <input class="x-input" type="search" placeholder=${suggest.length ? 'Search, or pick a suggestion below' : 'Search exercises'} value=${q} onInput=${(e) => setQ(e.target.value)} />
-    <div class="x-chips">${list.filter((x) => !chosen.includes(x.key)).slice(0, 10).map((x) => html`<button type="button" class="x-chip" style="border:0;min-height:40px" onClick=${() => pick(x.key)}>+ ${x.name}</button>`)}</div></div>`;
+    <div class="x-chips">${list.filter((x) => !chosen.includes(x.key)).slice(0, 10).map((x) => html`<button type="button" class="x-chip" style="border:0;min-height:48px" onClick=${() => pick(x.key)}>+ ${x.name}</button>`)}</div></div>`;
 }
 
 const AREA_TO_LIB = { core: 'core', balance: 'balance', hamstring: 'hamstring', knee: 'knee', calf: 'calf', ankle: 'ankle' };

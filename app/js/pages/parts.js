@@ -119,7 +119,7 @@ export function PainMap({ regions, chosen, onToggle }) {
         <circle cx=${cx + dx} cy=${y} r="7" class="dot" /><circle cx=${cx + dx} cy=${y} r="12" fill="transparent" />
       </g>`))}
     </svg>
-    <div class="x-chips" style="justify-content:center">${chosen.length ? chosen.map((r) => html`<button type="button" class="x-chip work" style="border:0;min-height:40px" onClick=${() => onToggle(r)} aria-label=${'Remove ' + r}>${r} ×</button>`) : html`<span class="x-small x-muted">Tap the body where it hurts.</span>`}
-      ${regions.includes('Other') && !on('Other') ? html`<button type="button" class="x-chip" style="border:0;min-height:40px" onClick=${() => onToggle('Other')}>Somewhere else</button>` : null}</div>
+    <div class="x-chips" style="justify-content:center">${chosen.length ? chosen.map((r) => html`<button type="button" class="x-chip work" style="border:0;min-height:48px" onClick=${() => onToggle(r)} aria-label=${'Remove ' + r}>${r} ×</button>`) : html`<span class="x-small x-muted">Tap the body where it hurts.</span>`}
+      ${regions.includes('Other') && !on('Other') ? html`<button type="button" class="x-chip" style="border:0;min-height:48px" onClick=${() => onToggle('Other')}>Somewhere else</button>` : null}</div>
   </div>`;
 }
