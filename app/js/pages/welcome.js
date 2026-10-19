@@ -1,16 +1,23 @@
 // First screens: choose athlete or coach, create an account, or sign in.
-import { html, useState } from '../vendor/preact-htm.js';
+import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { go } from '../ui.js';
 import { XIcon, XField, XSeg } from '../xui.js';
 import { signUp, signIn, signupErrors, ROLES } from '../session.js';
 import { loadDemo } from '../demo.js';
+import { Logo, Wordmark, TAGLINE } from '../logo.js';
 
-const Mark = () => html`<div class="x-mark" style="background:linear-gradient(140deg,#5B3CF5,#FF2E88)" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v18M6 8h4M4 12h6M7 16h3M14 8h4M14 12h6M14 16h3"/></svg></div>`;
+// A two-second intro with the logo building up, shown when the sign-in screen opens. Tap to skip.
+function Splash() {
+  const [on, setOn] = useState(true);
+  useEffect(() => { const t = setTimeout(() => setOn(false), 2400); return () => clearTimeout(t); }, []);
+  return on ? html`<div class="sg-splash" role="presentation" onClick=${() => setOn(false)}><${Logo} size=${132} animate=${true} /><${Wordmark} size=${40} sub=${TAGLINE} light=${true} animate=${true} /></div>` : null;
+}
+const Brand = () => html`<a href="#/welcome" class="sg-lock" aria-label="Sportgram home"><${Logo} size=${32} /></a>`;
 
 export function Welcome() {
   const [busy, setBusy] = useState(false);
-  return html`<div class="x-page plain">
-    <div class="x-hero"><div style="display:flex;align-items:center;gap:12px"><${Mark} /><div class="x-brand" style="flex-direction:column;gap:0"><b style="font-size:28px">Sportgram</b><span>a MotionPlus product</span></div></div>
+  return html`<div class="x-page plain"><${Splash} />
+    <div class="x-hero"><div class="sg-lock"><${Logo} size=${60} animate=${true} /><${Wordmark} size=${30} sub="a MotionPlus product" animate=${true} /></div>
       <h1>Find your weak side. Fix it. Get seen.</h1>
       <p class="x-sub" style="font-size:17px">Free tests with basic equipment, coaches and physios who answer, and a feed that makes you better.</p>
     </div>
@@ -38,7 +45,7 @@ export function SignUp({ role }) {
     go('/');
   };
   return html`<form class="x-page plain" onSubmit=${submit} novalidate>
-    <div class="x-topbar"><a class="x-link" href="#/welcome"><${XIcon} name="back" size=${20} />Back</a></div>
+    <div class="x-topbar"><a class="x-link" href="#/welcome"><${XIcon} name="back" size=${20} />Back</a><${Brand} /></div>
     <div><h1 class="x-title">${athlete ? 'Join as an athlete' : 'Join as a coach'}</h1><p class="x-sub">${athlete ? 'Athletics first. More sports soon.' : 'Coaches, trainers and physios.'}</p></div>
     ${!athlete ? html`<div class="x-card"><span class="x-small x-muted" style="font-weight:600">I am a</span><${XSeg} label="Role" value=${f.role} onChange=${set('role')} options=${['coach', 'trainer', 'physio'].map((r) => ({ value: r, label: ROLES[r] }))} /></div>` : null}
     <div class="x-card" style="gap:14px">
@@ -71,7 +78,8 @@ export function SignIn() {
     go('/');
   };
   return html`<form class="x-page plain" onSubmit=${submit} novalidate>
-    <div class="x-topbar"><a class="x-link" href="#/welcome"><${XIcon} name="back" size=${20} />Back</a></div>
+    <div class="x-topbar"><a class="x-link" href="#/welcome"><${XIcon} name="back" size=${20} />Back</a><${Brand} /></div>
+    <div class="sg-lock" style="padding-top:12px"><${Logo} size=${64} animate=${true} /><${Wordmark} size=${28} sub=${TAGLINE} animate=${true} /></div>
     <h1 class="x-title">Sign in</h1>
     <div class="x-card" style="gap:14px">
       <${XField} label="Email" type="email" value=${email} onInput=${setEmail} autocomplete="email" inputmode="email" />

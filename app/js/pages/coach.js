@@ -13,6 +13,7 @@ import { Library, Exercise } from './athlete.js';
 import { Feed, PostPage, PostCard, Comic, Deck, SCENES } from './feed.js';
 import { ProProfile, EditProfile, Requests, ChatList, ChatThread } from './people.js';
 import { MirrorBoard } from './parts.js';
+import { Logo, Wordmark } from '../logo.js';
 
 const T = globalThis.MotionPlusTests;
 
@@ -56,6 +57,7 @@ function Inbox() {
   const fresh = list.filter((x) => x.status === 'new');
   const flags = (rep) => rep.mirror.filter((x) => x.tested && x.status !== 'even');
   return html`<div class="x-page">
+    <div class="sg-lock" style="padding:0 4px"><${Logo} size=${30} /><${Wordmark} size=${22} /></div>
     <div class="x-head"><div><div class="x-over">${ROLES[u.role]}${u.speciality ? ' · ' + u.speciality : ''}</div><h1 class="x-title">Inbox</h1></div><a class="x-avatar" href="#/me" aria-label="Your account">${initial(u.name)}</a></div>
     <p class="x-sub" style="padding:0 4px">${fresh.length ? fresh.length + ' new report' + (fresh.length > 1 ? 's' : '') + ' waiting for a programme.' : 'All caught up.'}</p>
     <${Requests} />
