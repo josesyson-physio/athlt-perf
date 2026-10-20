@@ -36,18 +36,18 @@ export function ReadAloud({ text, label }) {
 export function VoiceRow() {
   const [on, setOn] = useState(isVoiceOn());
   if (!canSpeak()) return null;
-  return html`<button class="x-row" type="button" aria-pressed=${String(on)} onClick=${() => { setVoice(!on); setOn(!on); if (!on) speak('Voice coach on.', { force: true }); }}><span class="x-badge"><${XIcon} name="speaker" size=${18} /></span><div class="grow"><b>Voice coach</b><span class="x-small x-muted">${on ? 'On: tests and sessions speak to you' : 'Off'}</span></div><span class=${'sg-switch' + (on ? ' on' : '')} aria-hidden="true"><i></i></span></button>`;
+  return html`<button class="x-row" type="button" aria-pressed=${String(on)} onClick=${() => { setVoice(!on); setOn(!on); if (!on) cue('voiceon'); }}><span class="x-badge"><${XIcon} name="speaker" size=${18} /></span><div class="grow"><b>Voice coach</b><span class="x-small x-muted">${on ? 'On: tests and sessions speak to you' : 'Off'}</span></div><span class=${'sg-switch' + (on ? ' on' : '')} aria-hidden="true"><i></i></span></button>`;
 }
 
 export function VoiceSwitch() {
   const [on, setOn] = useState(isVoiceOn());
   if (!canSpeak()) return null;
-  return html`<button type="button" class="x-btn ghost sm sg-read" aria-pressed=${String(on)} onClick=${() => { setVoice(!on); setOn(!on); if (!on) speak('Voice coach on.', { force: true }); else hush(); }}><${XIcon} name="speaker" size=${18} />${on ? 'Voice coach on' : 'Voice coach off'}</button>`;
+  return html`<button type="button" class="x-btn ghost sm sg-read" aria-pressed=${String(on)} onClick=${() => { setVoice(!on); setOn(!on); if (!on) cue('voiceon'); else hush(); }}><${XIcon} name="speaker" size=${18} />${on ? 'Voice coach on' : 'Voice coach off'}</button>`;
 }
 
 // 3, 2, 1, go with beeps and voice. Resolves when "go" sounds.
 async function countIn(intro) {
-  if (intro) { speak(intro); await wait(Math.min(3500, 600 + intro.length * 55)); }
+  if (intro) { await cue(intro); await wait(250); }
   await cue('ready'); await wait(500);
   for (const n of [3, 2, 1]) { beep(LO, 120); cue(n); await wait(1000); }
   beep(GO, 380); cue('go'); buzz(30);
@@ -67,7 +67,7 @@ export function HoldTimer({ sideLabel, onResult }) {
     const s10 = Math.floor(now / 10000);
     if (s10 > said.current) { said.current = s10; beep(HI, 90); if (s10 % 3 === 0) cue('onemore'); }
   });
-  const start = async () => { setSt('count'); setMs(0); said.current = 0; await countIn((sideLabel ? sideLabel + ' side. ' : '') + 'Get into position.'); t0.current = Date.now(); setSt('run'); };
+  const start = async () => { setSt('count'); setMs(0); said.current = 0; await countIn(sideLabel ? sideLabel.toLowerCase() : 'position'); t0.current = Date.now(); setSt('run'); };
   const stop = () => { const s = Math.round((Date.now() - t0.current) / 1000); setSt('done'); beep(LO, 300); cue('stop'); buzz([18, 60, 28]); onResult(s); };
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Hold timer</div>
@@ -82,7 +82,7 @@ export function SqueezeTimer() {
   const [left, setLeft] = useState(null);
   useHushOnLeave();
   const start = async () => {
-    setLeft(5); speak('Fist between your knees. Squeeze hard.'); await wait(2400); beep(GO, 250); buzz(30);
+    setLeft(5); await cue('squeeze'); await wait(400); beep(GO, 250); buzz(30);
     for (let n = 5; n > 0; n--) { setLeft(n); if (n <= 3) cue(n); else beep(LO, 90); await wait(1000); }
     setLeft(0); beep(LO, 400); cue('stop'); buzz([18, 60, 28]);
   };
@@ -105,7 +105,7 @@ export function Metronome({ sideLabel, onResult }) {
     if (half % 2 === 0) { beep(HI, 110); setPhase('Up'); if (half > 0) { const reps = half / 2; setN(reps); if (reps % 10 === 0) cue('onemore'); } }
     else { beep(LO, 110); setPhase('Down'); }
   }, 50);
-  const start = async () => { setN(0); setPhase(''); last.current = -1; await countIn((sideLabel ? sideLabel + ' leg. ' : '') + 'Up on the high beep, down on the low beep.'); t0.current = Date.now(); setOn(true); };
+  const start = async () => { setN(0); setPhase(''); last.current = -1; await countIn(sideLabel ? sideLabel.toLowerCase() + 'leg' : 'position'); t0.current = Date.now(); setOn(true); };
   const stop = () => { setOn(false); setPhase(''); beep(LO, 300); cue('stop'); buzz([18, 60, 28]); onResult(n); };
   return html`<div class="x-card sg-tool">
     <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Pace and count</div>
@@ -130,7 +130,7 @@ export function LapRun({ onResult }) {
     if (s <= 10 && s > 0 && s !== tens.current) { tens.current = s; if (s === 10) cue('ten'); else if (s <= 3) cue(s); else beep(LO, 90); }
     if (l <= 0) { setSt('done'); beep(GO, 600); cue('stop'); buzz([30, 80, 30, 80, 60]); }
   }, 200);
-  const start = async () => { setSt('count'); setLaps(0); setLeft(RUN); mins.current = 12; tens.current = -1; await countIn('Twelve minute run. Tap the big button each time you pass the start line.'); t0.current = Date.now(); setSt('run'); };
+  const start = async () => { setSt('count'); setLaps(0); setLeft(RUN); mins.current = 12; tens.current = -1; await countIn('position'); t0.current = Date.now(); setSt('run'); };
   const tapLap = () => { const n = laps + 1; setLaps(n); beep(HI, 80); buzz(25); cue('lap'); };
   const total = laps * lap + (Number(extra) || 0);
   return html`<div class="x-card sg-tool">
@@ -141,7 +141,7 @@ export function LapRun({ onResult }) {
     <${Big} sub=${st === 'run' ? laps + (laps === 1 ? ' lap · ' : ' laps · ') + laps * lap + ' m' : st === 'done' ? 'Time is up.' : 'Laps are counted on a known track, so distance is exact.'}>${fmtClock(left)}<//>
     ${st === 'run' ? html`<button class="sg-lap" onClick=${tapLap} aria-label=${'Lap done. ' + laps + ' so far'}><b>LAP</b><span>${laps}</span></button>` : null}
     ${st === 'done' ? html`<label class="x-field"><span>Metres past the last lap line (pace it out, or skip)</span><input class="x-input" type="number" inputmode="numeric" value=${extra} onInput=${(e) => setExtra(e.target.value)} /></label>
-      <button class="x-btn" onClick=${() => { onResult(total); speak('Total ' + total + ' metres.'); }}><${XIcon} name="check" size=${20} />Use ${total} m</button>` : null}
+      <button class="x-btn" onClick=${() => { onResult(total); cue('stop'); }}><${XIcon} name="check" size=${20} />Use ${total} m</button>` : null}
     ${st === 'idle' || st === 'count' ? html`<button class="x-btn" disabled=${st === 'count'} onClick=${start}><${XIcon} name="play" size=${20} />${st === 'count' ? 'Get ready…' : 'Start the 12 minutes'}</button>` : null}
     ${st === 'run' ? html`<button class="x-btn ghost sm" onClick=${() => { setSt('idle'); hush(); }}>Cancel run</button>` : null}
   </div>`;
@@ -229,7 +229,7 @@ export function SessionCoach({ items, title, onFinish, backHref, intro, doneText
     if (l !== rest) { setRest(Math.max(0, l)); if (l <= 3 && l > 0) cue(l); }
     if (l <= 0) { beep(GO, 300); buzz(30); cue('restover'); setRest(0); }
   }, 200);
-  const startRest = (sec) => { until.current = Date.now() + sec * 1000; setRest(sec); speak('Rest ' + sec + ' seconds.'); };
+  const startRest = (sec) => { until.current = Date.now() + sec * 1000; setRest(sec); cue('rest'); };
   if (done) return html`<div class="x-page plain"><div style="padding:48px 4px 8px;display:flex;flex-direction:column;gap:10px"><span class="x-badge" style="width:56px;height:56px;border-radius:18px"><${XIcon} name="star" size=${28} /></span><h1 class="x-title">${doneText ? 'Done' : 'Session done'}</h1><p class="x-sub">${doneText || 'Ticked off in your programme. Rest well.'}</p></div><a class="x-btn" href=${backHref}>Back</a></div>`;
   return html`<div class="x-page plain">
     <div class="x-topbar"><a class="x-link" href=${backHref}>Close</a><${VoiceSwitch} /></div>

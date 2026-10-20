@@ -49,12 +49,20 @@ export const CUES = {
   ready: 'Get ready.', 3: 'Three.', 2: 'Two.', 1: 'One.', go: 'Go!', lap: 'Lap! Keep going!', halfway: 'Halfway! Stay strong!',
   minute: 'One minute left. Push!', ten: 'Ten seconds! Hold it!', onemore: 'Come on! One more!', stop: "Stop! That's it!",
   restover: "Rest over. Let's go!", next: "Next exercise. Let's go!", sessiondone: 'Session done! You showed up today. Proud of you!',
-  ghost: 'You beat your ghost! New best!', warmupdone: "Warm-up done. You're ready. Go fly!", stage: 'Stage passed! Next level unlocked!',
+  ghost: 'You beat your ghost! New best!', voiceon: "Voice coach on. Let's go!", left: 'Left side.', right: 'Right side.', leftleg: 'Left leg.', rightleg: 'Right leg.',
+  position: 'Get into position.', rest: 'Rest. Breathe.', squeeze: 'Squeeze hard! Hold it!', warmupdone: "Warm-up done. You're ready. Go fly!", stage: 'Stage passed! Next level unlocked!',
 };
 // Clips play through the same sound engine as the beeps. Phones (iPhones most of all) only let a page
 // make sound after a tap, so any tap in the app wakes the engine; after that, cues can play
 // mid-timer without a tap of their own.
-const ctx = () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; } return audio; };
+const ctx = () => {
+  try {
+    // iPhone: play like a media app, so the ring/silent switch does not mute the coach.
+    if (!audio && navigator.audioSession) navigator.audioSession.type = 'playback';
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+  } catch (e) { audio = null; }
+  return audio;
+};
 const bufs = {};
 let playing = null;
 function load(name) {
@@ -82,7 +90,10 @@ if (typeof window !== 'undefined') {
 export function cue(name) {
   name = String(name);
   if (!voiceOn()) return Promise.resolve();
-  return load(name).then((buf) => new Promise((resolve) => {
+  const c0 = ctx();
+  // Right after a tap the engine may still be waking; give it a moment before falling back.
+  const awake = c0 && c0.state !== 'running' ? Promise.race([c0.resume().catch(() => {}), new Promise((r) => setTimeout(r, 500))]) : Promise.resolve();
+  return Promise.all([load(name), awake]).then(([buf]) => new Promise((resolve) => {
     const c = audio;
     if (!buf || !c || c.state !== 'running') { speak(CUES[name]); setTimeout(resolve, 900); return; }
     if (canSpeak()) window.speechSynthesis.cancel();
