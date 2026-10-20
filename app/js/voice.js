@@ -51,25 +51,46 @@ export const CUES = {
   restover: "Rest over. Let's go!", next: "Next exercise. Let's go!", sessiondone: 'Session done! You showed up today. Proud of you!',
   ghost: 'You beat your ghost! New best!', warmupdone: "Warm-up done. You're ready. Go fly!", stage: 'Stage passed! Next level unlocked!',
 };
-const clips = {};
+// Clips play through the same sound engine as the beeps. Phones (iPhones most of all) only let a page
+// make sound after a tap, so any tap in the app wakes the engine; after that, cues can play
+// mid-timer without a tap of their own.
+const ctx = () => { try { audio = audio || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; } return audio; };
+const bufs = {};
 let playing = null;
-const clip = (name) => { if (!clips[name]) { clips[name] = new Audio('audio/coach/' + name + '.mp3'); clips[name].preload = 'auto'; } return clips[name]; };
-export function warmCues(names) { (names || Object.keys(CUES)).forEach((n) => clip(String(n)).load()); }
+function load(name) {
+  const c = ctx();
+  if (!c) return Promise.resolve(null);
+  if (!bufs[name]) {
+    bufs[name] = fetch('audio/coach/' + name + '.mp3').then((r) => r.arrayBuffer())
+      .then((b) => new Promise((ok, no) => c.decodeAudioData(b, ok, no))).catch(() => { delete bufs[name]; return null; });
+  }
+  return bufs[name];
+}
+export function warmCues(names) { (names || Object.keys(CUES)).forEach((n) => load(String(n))); }
+
+if (typeof window !== 'undefined') {
+  const wake = () => {
+    const c = ctx();
+    if (!c) return;
+    if (c.state !== 'running') c.resume();
+    const s = c.createBufferSource(); s.buffer = c.createBuffer(1, 1, 22050); s.connect(c.destination); s.start(0);
+  };
+  ['pointerdown', 'touchend', 'keydown'].forEach((ev) => window.addEventListener(ev, wake, { capture: true, passive: true }));
+}
 
 // Plays a cue and resolves when it ends (or straight away when the voice coach is off).
 export function cue(name) {
-  return new Promise((resolve) => {
-    if (!voiceOn()) return resolve();
-    const a = clip(String(name));
-    if (playing && playing !== a) { playing.pause(); }
+  name = String(name);
+  if (!voiceOn()) return Promise.resolve();
+  return load(name).then((buf) => new Promise((resolve) => {
+    const c = audio;
+    if (!buf || !c || c.state !== 'running') { speak(CUES[name]); setTimeout(resolve, 900); return; }
     if (canSpeak()) window.speechSynthesis.cancel();
-    playing = a;
-    let done = false;
-    const end = () => { if (!done) { done = true; resolve(); } };
-    a.onended = end;
-    try { a.currentTime = 0; } catch (e) { /* not loaded yet */ }
-    const p = a.play();
-    if (p && p.catch) p.catch(() => { speak(CUES[name]); setTimeout(end, 900); });
-    setTimeout(end, 6000);
-  });
+    if (playing) { try { playing.stop(); } catch (e) { /* already ended */ } }
+    const src = c.createBufferSource();
+    src.buffer = buf; src.connect(c.destination);
+    src.onended = () => { if (playing === src) playing = null; resolve(); };
+    playing = src; src.start(0);
+    setTimeout(resolve, buf.duration * 1000 + 300);
+  }));
 }
