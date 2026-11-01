@@ -1,10 +1,10 @@
 // The athlete app: Home, Feed, Train (programme, tests, Mirror, progress, library), Chat and Me.
-import { html, useState } from '../vendor/preact-htm.js';
+import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { go, toast, has, downloadFile, buzz } from '../ui.js';
 import { XIcon, XSeg, XScale, XField, firstName, initial, ago } from '../xui.js';
 import * as store from '../store.js';
 import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
-import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone, ladderFor, logLadder } from '../social.js';
+import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone, ladderFor, logLadder, movesFor, logMove } from '../social.js';
 import { buildWarmup } from '../warmup.js';
 import { growthGuide } from '../growth.js';
 import { questionsFor, energyResult } from '../energy.js';
@@ -16,7 +16,9 @@ import { MirrorBoard, BodyMirror, PainMap, ExerciseRows, Spark } from './parts.j
 import { Logo, Wordmark } from '../logo.js';
 import { EXERCISES, AREAS as LIB_AREAS, byKey as exercise, forArea } from '../library.js';
 import { today, evaluateAthlete } from '../monitor.js';
-import { ReadAloud, TestTool, VoiceSwitch, VoiceRow, SessionCoach } from './tools.js';
+import { ReadAloud, TestTool, VoiceSwitch, VoiceRow, SessionCoach, BreathPacer } from './tools.js';
+import { journey, LEVELS, EARN } from '../journey.js';
+import { MB_STAGES, stageOf, moveStatus, DAYS_TO_CLEAR } from '../move.js';
 import { isLarge, setLargeText } from '../access.js';
 import { cue } from '../voice.js';
 
@@ -31,7 +33,7 @@ const TABS = [
   { path: '/chat', label: 'Chat', icon: 'chat' },
   { path: '/me', label: 'Me', icon: 'me' },
 ];
-const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress', 'session', 'warmup', 'ladder'];
+const TRAIN = ['train', 'tests', 'mirror', 'library', 'plans', 'progress', 'session', 'warmup', 'ladder', 'move'];
 const ME = ['me', 'find', 'pro', 'growth', 'energy'];
 
 export function AthleteApp({ r }) {
@@ -59,11 +61,14 @@ export function AthleteApp({ r }) {
   else if (a === 'ladder') page = html`<${Ladder} />`;
   else if (a === 'growth') page = html`<${Growth} />`;
   else if (a === 'energy') page = html`<${Energy} />`;
+  else if (a === 'journey') page = html`<${Journey} />`;
+  else if (a === 'move' && !b) page = html`<${MovePath} />`;
+  else if (a === 'move') page = html`<${MoveSession} key=${b} stageKey=${b} />`;
   else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go home</a></div></div>`;
-  const active = (p) => (p === '/' ? !a || a === 'pulse' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
-  const hideTabs = a === 'pulse' || a === 'session' || a === 'warmup' || (a === 'tests' && b) || (a === 'chat' && b);
+  const active = (p) => (p === '/' ? !a || a === 'pulse' || a === 'journey' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
+  const hideTabs = a === 'pulse' || a === 'session' || a === 'warmup' || (a === 'move' && b) || (a === 'tests' && b) || (a === 'chat' && b);
   const unread = unreadFor(me());
-  return html`<div class="x">${page}
+  return html`<div class="x">${page}<${Celebrate} />
     ${hideTabs ? null : html`<nav class="x-tabs" aria-label="Main">${TABS.map((t) => html`<a href=${'#' + t.path} class=${active(t.path) ? 'on' : ''} aria-current=${active(t.path) ? 'page' : null}><${XIcon} name=${t.icon} size=${24} />${t.label}${t.path === '/chat' && unread ? html`<span class="x-dot">${unread}</span>` : null}</a>`)}</nav>`}
   </div>`;
 }
@@ -136,6 +141,7 @@ function Today() {
     <div class="sg-lock" style="padding:0 4px"><${Logo} size=${30} /><${Wordmark} size=${22} /></div>
     <div class="x-head"><div><div class="x-over">${date}</div><h1 class="x-title">Hey ${firstName(u.name)}</h1></div><a class="x-avatar" href="#/me" aria-label="Your profile">${initial(u.name)}</a></div>
     ${urgent ? html`<div class="x-urgent" role="alert"><h1>Stop. Don't train today.</h1><p>You reported: ${urgent.title.toLowerCase()}. Tell your coach and see a doctor today. Chest pain or trouble breathing right now: call 112.</p></div>` : null}
+    <${JourneyCard} j=${journeyOf(a)} />
     ${physioFlag ? html`<div class="x-card" style="gap:10px;box-shadow:inset 0 0 0 1.5px var(--x-work)"><div class="x-kicker" style="color:var(--x-work-text)">Physio check</div><b style="font-size:17px">${physioFlag.region} pain two days running</b>
       <p class="x-small x-muted">${physio ? physio.name + ' has been sent a flag and can see your pulse. Go easy on this area until you talk.' : 'Pain at 4 or more two days in a row is worth a physio look. Connect with one so they get these flags.'}</p>
       ${physio ? html`<a class="x-btn soft sm" href=${'#/chat/' + physio.id}><${XIcon} name="chat" size=${18} />Message ${firstName(physio.name)}</a>` : html`<a class="x-btn soft sm" href="#/find">Find a physio</a>`}</div>` : null}
@@ -269,11 +275,13 @@ function Train() {
       <a class="x-tilebig" href="#/progress"><span class="x-badge"><${XIcon} name="up" size=${20} /></span><b>Progress</b><span class="x-small x-muted">${results.length} results</span></a>
       <a class="x-tilebig" href="#/library"><span class="x-badge"><${XIcon} name="library" size=${20} /></span><b>Library</b><span class="x-small x-muted">${EXERCISES.length} exercises</span></a>
       <a class="x-tilebig" href="#/plans"><span class="x-badge"><${XIcon} name="run" size=${20} /></span><b>Programmes</b><span class="x-small x-muted">${plansFor(a.id).length || 'None yet'}</span></a>
+      <a class="x-tilebig" href="#/move"><span class="x-badge"><${XIcon} name="strong" size=${20} /></span><b>Move Better</b><span class="x-small x-muted">${(() => { const st = moveStatus(movesFor(a.id), results); return st.done ? 'All 5 stages clear' : 'Stage ' + (st.index + 1) + ' of 5: ' + st.current.name; })()}</span></a>
       <a class="x-tilebig" href="#/warmup"><span class="x-badge watch"><${XIcon} name="fire" size=${20} /></span><b>Smart warm-up</b><span class="x-small x-muted">${work ? 'Built for your gaps' : '15 minutes'}</span></a>
       ${ladderFor(a.id) ? html`<a class="x-tilebig" href="#/ladder"><span class="x-badge"><${XIcon} name="flag" size=${20} /></span><b>Back to running</b><span class="x-small x-muted">${(() => { const st = ladderStatus(ladderFor(a.id)); return st.done ? 'Done' : 'Stage ' + (st.index + 1) + ' of ' + st.total; })()}</span></a>` : null}
     </div>
-    <div class="x-section">Tests · left vs right</div><div class="x-list">${T.TESTS.filter((t) => t.sides).map(testRow(results))}</div>
-    <div class="x-section">Tests · fitness</div><div class="x-list">${T.TESTS.filter((t) => !t.sides).map(testRow(results))}</div>
+    <div class="x-section">Tests · left vs right</div><div class="x-list">${T.TESTS.filter((t) => t.sides && !t.group).map(testRow(results))}</div>
+    <div class="x-section">Tests · fitness</div><div class="x-list">${T.TESTS.filter((t) => !t.sides && !t.group).map(testRow(results))}</div>
+    <div class="x-section">Tests · Move Better checks</div><div class="x-list">${T.TESTS.filter((t) => t.group === 'move').map(testRow(results))}</div>
     <p class="x-small x-dim" style="padding:0 4px">Basic equipment only. Do tests on flat, hard ground and retest every 4 weeks.</p>
   </div>`;
 }
@@ -312,8 +320,9 @@ function Tests() {
   return html`<div class="x-page">
     <div class="x-head"><div><div class="x-over">Basic equipment only</div><h1 class="x-title">Tests</h1></div></div>
     <p class="x-sub" style="padding:0 4px">Each test takes a few minutes. Do them on flat, hard ground and retest every 4 weeks.</p>
-    <div class="x-section">Left vs right</div><div class="x-list">${T.TESTS.filter((t) => t.sides).map(row)}</div>
-    <div class="x-section">Fitness</div><div class="x-list">${T.TESTS.filter((t) => !t.sides).map(row)}</div>
+    <div class="x-section">Left vs right</div><div class="x-list">${T.TESTS.filter((t) => t.sides && !t.group).map(row)}</div>
+    <div class="x-section">Fitness</div><div class="x-list">${T.TESTS.filter((t) => !t.sides && !t.group).map(row)}</div>
+    <div class="x-section">Move Better checks</div><div class="x-list">${T.TESTS.filter((t) => t.group === 'move').map(row)}</div>
   </div>`;
 }
 
@@ -360,7 +369,7 @@ function TestRun({ testKey }) {
         <p class="x-sub">${beat && beat.length ? (t.sides ? beat.map((s) => s[0].toUpperCase() + s.slice(1)).join(' and ') + ' side' + (beat.length > 1 ? 's' : '') + ' set a new best.' : 'New personal best: ' + fmtVal(t, saved.value) + '.') : g ? 'This is your new ghost to chase next time.' : 'This is your ghost. Beat it next time.'}</p>
       </div>
       ${j ? html`<div class="x-card" style="flex-direction:row;gap:12px;align-items:center"><span class=${'x-badge ' + (j.status === 'even' ? '' : j.status)}><${XIcon} name=${j.status === 'even' ? 'check' : 'alert'} size=${18} /></span><div style="flex:1"><b>${STATUS_WORD[j.status]}</b><div class="x-small x-muted">${j.text}</div></div></div>` : null}
-      <a class="x-btn" href="#/mirror">See your Mirror</a><a class="x-btn ghost" href="#/train">Back to Train</a>
+      ${t.group === 'move' ? html`<a class="x-btn" href="#/move">Back to Move Better</a>` : html`<a class="x-btn" href="#/mirror">See your Mirror</a>`}<a class="x-btn ghost" href="#/train">Back to Train</a>
     </div>`;
   }
   return html`<div class="x-page plain">
@@ -463,7 +472,7 @@ function Warmup() {
   if (!a) return html`<${NoAthlete} />`;
   const w = buildWarmup(T.mirror(resultsFor(a.id)));
   return html`<${SessionCoach} items=${w.items} backHref="#/train" doneText="Warm-up done. You're ready to train." intro=${'About ' + w.minutes + ' minutes. ' + (w.targeted.length ? 'Extra drills for: ' + w.targeted.join(', ') + '. ' : '') + 'Warm-ups like this cut injuries by about a third in team-sport studies (FIFA 11+).'}
-    title=${'Smart warm-up' + (w.targeted.length ? ' · ' + w.targeted.join(', ') : '')} onFinish=${async () => {}} />`;
+    title=${'Smart warm-up' + (w.targeted.length ? ' · ' + w.targeted.join(', ') : '')} onFinish=${() => logMove(a.id, 'warmup')} />`;
 }
 
 // Return-to-run ladder set by the physio: unlock the next stage when the pass rule is met.
@@ -612,4 +621,140 @@ function Me() {
     ${others.length ? html`<div class="x-section">Other accounts on this phone</div><div class="x-list">${others.map((o) => html`<button class="x-row" type="button" onClick=${() => { switchTo(o.id); go('/'); }}><span class="x-avatar soft">${initial(o.name)}</span><div class="grow"><b>${o.name}</b><span class="x-small x-muted">${ROLES[o.role]}</span></div><span class="x-chev"><${XIcon} name="swap" size=${18} /></span></button>`)}</div>` : null}
     <button class="x-btn ghost" onClick=${() => { signOut(); go('/welcome'); }}>Sign out</button>
   </div>`;
+}
+
+// ---------- Road to the Olympics ----------
+function journeyOf(a) {
+  const s = store.getState();
+  return journey({ checkins: s.checkins.filter((c) => c.athleteId === a.id), results: resultsFor(a.id), progress: s.progress.filter((p) => p.athleteId === a.id), moves: movesFor(a.id) }, today());
+}
+
+function LevelBar({ j }) {
+  return html`<div class="sg-xp" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow=${j.pct} aria-label=${j.next ? j.pct + '% of the way to ' + j.next.name : 'Top level reached'}><i style=${'width:' + Math.max(4, j.pct) + '%'}></i></div>`;
+}
+
+function JourneyCard({ j }) {
+  const done = j.quests.filter((q) => q.done).length;
+  return html`<a class="x-card sg-journey" href="#/journey">
+    <div style="display:flex;justify-content:space-between;align-items:center"><span class="x-kicker">Road to the Olympics</span><span class="sg-pts">${j.points} pts</span></div>
+    <div style="display:flex;align-items:baseline;gap:10px"><b class="sg-level">${j.level.name}</b><span class="x-small" style="opacity:.8">${j.next ? j.toNext + ' to ' + j.next.name : 'Top of the road'}</span></div>
+    <${LevelBar} j=${j} />
+    <div class="sg-quests-mini"><span class="x-small" style="opacity:.85">Quests this week</span>${j.quests.map((q) => html`<i class=${q.done ? 'on' : ''} title=${q.text}>${q.done ? html`<${XIcon} name="check" size=${12} />` : null}</i>`)}<span class="x-small" style="opacity:.85">${done}/${j.quests.length}</span></div>
+  </a>`;
+}
+
+function Journey() {
+  const a = myAthlete();
+  if (!a) return html`<${NoAthlete} />`;
+  const j = journeyOf(a);
+  const road = LEVELS.map((l, i) => ({ l, i })).reverse();
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/"><${XIcon} name="back" size=${20} />Home</a></div>
+    <div><div class="x-over">Road to the Olympics</div><h1 class="x-title">Your journey</h1></div>
+    <div class="x-card sg-journey big">
+      <span class="x-kicker">Level ${j.levelIndex + 1} of ${LEVELS.length}</span>
+      <b class="sg-level">${j.level.name}</b>
+      <${LevelBar} j=${j} />
+      <div class="x-small" style="opacity:.85">${j.points} points · ${j.next ? j.toNext + ' more to ' + j.next.name : 'You made it to the top. Keep the streak alive.'}</div>
+    </div>
+    <div class="x-section">This week's quests · new ones every Monday</div>
+    <div class="x-list">${j.quests.map((q) => html`<a class="x-row" href=${q.href}><span class=${'x-badge' + (q.done ? '' : ' watch')}><${XIcon} name=${q.done ? 'check' : 'flag'} size=${18} /></span>
+      <div class="grow"><b>${q.text}</b><span class="sg-qbar" aria-label=${q.have + ' of ' + q.need}><i style=${'width:' + Math.round((q.have / q.need) * 100) + '%'}></i></span><span class="x-small x-muted">${q.done ? 'Done · +40 points' : q.have + ' of ' + q.need + ' · +40 points'}</span></div>
+      <span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`)}</div>
+    <div class="x-section">The road</div>
+    <ol class="sg-ladder">${road.map(({ l, i }) => { const state = i < j.levelIndex ? 'done' : i === j.levelIndex ? 'now' : 'locked'; return html`<li class=${state}><span class="sg-rung">${state === 'done' ? html`<${XIcon} name="check" size=${16} />` : i + 1}</span><div><b>${l.name}</b><span class="x-small x-muted">${l.points} points${state === 'now' ? ' · you are here' : ''}</span></div>${state === 'locked' ? html`<span class="x-small x-dim">${l.points - j.points} to go</span>` : null}</li>`; })}</ol>
+    <div class="x-section">Badges · ${j.badges.filter((b) => b.earned).length} of ${j.badges.length}</div>
+    <div class="sg-badges">${j.badges.map((b) => html`<div class=${'sg-medal' + (b.earned ? ' on' : '')}><span><${XIcon} name=${b.icon} size=${22} /></span><b>${b.name}</b><span class="x-small x-muted">${b.earned ? 'Earned' : b.how}</span></div>`)}</div>
+    <div class="x-section">How you earn points</div>
+    <div class="x-list">${EARN.map(([what, pts]) => html`<div class="x-row"><div class="grow"><b>${what}</b></div><span class="x-chip tint">+${pts}</span></div>`)}</div>
+    <p class="x-small x-dim" style="padding:0 4px">Points reward showing up and closing your gaps, not talent. Every athlete can reach Olympian.</p>
+  </div>`;
+}
+
+// Level-ups, new badges and finished quests get a cheer, once. The first look at the journey is quiet.
+function Celebrate() {
+  const a = myAthlete();
+  const j = a ? journeyOf(a) : null;
+  const [show, setShow] = useState(null);
+  const badges = j ? j.badges.filter((b) => b.earned).map((b) => b.key) : [];
+  const quests = j ? j.quests.filter((q) => q.done).map((q) => q.key) : [];
+  const sig = j ? [a.id, j.levelIndex, badges.join(','), j.week, quests.join(',')].join('|') : '';
+  useEffect(() => {
+    if (!j) return undefined;
+    const k = 'sg-journey-' + a.id;
+    let seen = null;
+    try { seen = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { seen = null; }
+    try { localStorage.setItem(k, JSON.stringify({ level: j.levelIndex, badges, week: j.week, quests })); } catch (e) { return undefined; }
+    if (!seen) return undefined;
+    const newBadges = badges.filter((b) => !(seen.badges || []).includes(b));
+    const newQuests = seen.week === j.week ? quests.filter((q) => !(seen.quests || []).includes(q)) : [];
+    let say = null;
+    if (j.levelIndex > seen.level) { setShow({ level: j.level, next: j.next }); say = 'levelup'; }
+    else if (newBadges.length) { setShow({ badge: j.badges.find((b) => b.key === newBadges[0]) }); say = 'badge'; }
+    else if (newQuests.length) { toast('Quest done: ' + j.quests.find((q) => q.key === newQuests[0]).text.toLowerCase() + '. +40 points'); say = 'quest'; }
+    if (!say) return undefined;
+    buzz([18, 60, 28, 60, 40]);
+    const t = setTimeout(() => cue(say), 1600); // let a "you beat your ghost" cheer finish first
+    return () => clearTimeout(t);
+  }, [sig]);
+  if (!show) return null;
+  return html`<div class="sg-cheer" role="dialog" aria-modal="true" aria-label=${show.level ? 'Level up' : 'New badge'}>
+    <div class="sg-burst" aria-hidden="true">${Array.from({ length: 14 }, (_, i) => html`<i style=${'--r:' + i * 26 + 'deg;--d:' + (i % 4) * 60 + 'ms'}></i>`)}</div>
+    <span class="sg-medal on big"><span><${XIcon} name=${show.level ? 'up' : show.badge.icon} size=${40} /></span></span>
+    <div class="x-kicker">${show.level ? 'Level up' : 'New badge'}</div>
+    <h1>${show.level ? show.level.name : show.badge.name}</h1>
+    <p>${show.level ? (show.next ? 'Next stop: ' + show.next.name + '. Keep showing up.' : 'You reached the top of the road. Olympian.') : show.badge.how + '. Done.'}</p>
+    <button class="x-btn" onClick=${() => setShow(null)}>Keep climbing</button>
+    <a class="x-link" href="#/journey" onClick=${() => setShow(null)}>See your journey</a>
+  </div>`;
+}
+
+// ---------- Move Better ----------
+function MovePath() {
+  const a = myAthlete();
+  if (!a) return html`<${NoAthlete} />`;
+  const st = moveStatus(movesFor(a.id), resultsFor(a.id));
+  const cur = st.current ? stageOf(st.current.key) : null;
+  const doneToday = cur && movesFor(a.id).some((m) => m.kind === 'move' && m.stage === cur.key && m.date === today());
+  const check = cur && cur.check ? T.byKey(cur.check) : null;
+  return html`<div class="x-page">
+    <div class="x-topbar"><a class="x-link" href="#/train"><${XIcon} name="back" size=${20} />Train</a></div>
+    <div><div class="x-over">Five stages · nothing to buy</div><h1 class="x-title">Move Better</h1></div>
+    <p class="x-sub" style="padding:0 4px">Loosen up, breathe calm, stand tall, turn freely and spring off the ground. Each stage opens when the one before is clear: its session on ${DAYS_TO_CLEAR} different days, plus its check.</p>
+    ${cur ? html`<div class="x-card sg-journey" style="gap:12px">
+      <span class="x-kicker">Stage ${st.index + 1} of ${MB_STAGES.length}</span>
+      <b class="sg-level">${cur.name}</b><span style="opacity:.85">${cur.goal}</span>
+      <div class="sg-quests-mini"><span class="x-small" style="opacity:.85">Session days</span>${Array.from({ length: DAYS_TO_CLEAR }, (_, i) => html`<i class=${i < st.current.days ? 'on' : ''}>${i < st.current.days ? html`<${XIcon} name="check" size=${12} />` : null}</i>`)}<span class="x-small" style="opacity:.85">${Math.min(st.current.days, DAYS_TO_CLEAR)}/${DAYS_TO_CLEAR}</span></div>
+      ${check ? html`<div class="sg-quests-mini"><span class="x-small" style="opacity:.85">Check: ${check.name}</span><i class=${st.current.checked ? 'on' : ''}>${st.current.checked ? html`<${XIcon} name="check" size=${12} />` : null}</i></div>` : null}
+      <a class="x-btn sg-onDark" href=${'#/move/' + cur.key}><${XIcon} name="play" size=${20} />${doneToday ? 'Done today · go again' : "Start today's session · " + cur.minutes + ' min'}</a>
+      ${check && !st.current.checked ? html`<a class="x-btn ghost sg-ghostDark" href=${'#/tests/' + check.key}>Do the check: ${check.name}</a>` : null}
+    </div>` : html`<div class="x-card"><div class="x-kicker">Path complete</div><h2>All five stages clear</h2><p class="x-muted">Keep one or two stages in your week, and redo the checks every 4 weeks.</p></div>`}
+    <ol class="sg-ladder">${st.stages.map((x, i) => { const s = stageOf(x.key); const c = s.check ? T.byKey(s.check) : null; const body = html`<span class="sg-rung">${x.state === 'done' ? html`<${XIcon} name="check" size=${16} />` : i + 1}</span><div><b>${s.name}</b><span class="x-small x-muted">${s.goal}${c ? ' · check: ' + c.name.toLowerCase() : ''}</span></div>${x.state === 'locked' ? html`<span class="x-small x-dim">Locked</span>` : null}`;
+      return html`<li class=${x.state}>${x.state === 'done' ? html`<a href=${'#/move/' + s.key} style="display:contents;color:inherit">${body}</a>` : body}</li>`; })}</ol>
+    <p class="x-small x-dim" style="padding:0 4px">Stop anything that causes sharp pain, and tell your physio.</p>
+  </div>`;
+}
+
+function MoveSession({ stageKey }) {
+  const a = myAthlete();
+  const [saved, setSaved] = useState(false);
+  if (!a) return html`<${NoAthlete} />`;
+  const s = stageOf(stageKey);
+  const st = moveStatus(movesFor(a.id), resultsFor(a.id));
+  const x = s && st.stages.find((y) => y.key === s.key);
+  if (!s || x.state === 'locked') return html`<div class="x-page plain"><div class="x-topbar"><a class="x-link" href="#/move">Close</a></div><div class="x-card"><h2>${s ? s.name + ' is locked' : 'Stage not found'}</h2><p class="x-muted">Clear the stage before it on the Move Better path first.</p><a class="x-btn soft sm" href="#/move">Back to Move Better</a></div></div>`;
+  const doneToday = movesFor(a.id).some((m) => m.kind === 'move' && m.stage === s.key && m.date === today());
+  const days = Math.min(DAYS_TO_CLEAR, x.days + (doneToday ? 0 : 1));
+  const note = x.cleared ? (x.clearedOn === today() ? s.name + ' is clear. The next stage is open.' : 'Stage already clear. Good to keep it going.') : 'Saved. Day ' + days + ' of ' + DAYS_TO_CLEAR + ' toward clearing ' + s.name + '.';
+  if (s.pacer) {
+    return html`<div class="x-page plain">
+      <div class="x-topbar"><a class="x-link" href="#/move">Close</a><${VoiceSwitch} /></div>
+      <div><div class="x-over">Move Better · stage 2</div><h1 class="x-title md">Breathe</h1></div>
+      <p class="x-sub">Three minutes of slow nose breathing. It calms your heart rate and trains the breathing you want in a race.</p>
+      <${BreathPacer} minutes=${s.minutes} onFinish=${async () => { await logMove(a.id, 'move', s.key); setSaved(true); }} />
+      ${saved ? html`<div class="x-note" role="status">${note}</div><a class="x-btn" href="#/move">Back to Move Better</a>` : null}
+    </div>`;
+  }
+  return html`<${SessionCoach} items=${s.items} title=${'Move Better · ' + s.name} backHref="#/move" doneCue="sessiondone" doneText=${note}
+    intro=${'About ' + s.minutes + ' minutes. ' + s.goal + '. The phone reads each one out and times your rests.'} onFinish=${() => logMove(a.id, 'move', s.key)} />`;
 }

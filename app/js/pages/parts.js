@@ -40,7 +40,7 @@ export function Spark({ points, lowerBetter, width, height }) {
 const FRONT = 85, BACK = 255;
 const SPOTS = { // area: [figure centre, x offset from the centre line, y]
   core: [FRONT, 25, 116], knee: [FRONT, 17, 204], ankle: [FRONT, 18, 250], balance: [FRONT, 21, 268],
-  hamstring: [BACK, 15, 176], calf: [BACK, 17, 222],
+  hamstring: [BACK, 15, 176], calf: [BACK, 17, 222], spine: [BACK, 22, 92],
 };
 const WORD = { work: 'work on', watch: 'watch', even: 'even' };
 

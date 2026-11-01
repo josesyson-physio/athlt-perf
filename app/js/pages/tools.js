@@ -6,6 +6,7 @@ import { html, useState, useEffect, useRef } from '../vendor/preact-htm.js';
 import { XIcon } from '../xui.js';
 import { buzz } from '../ui.js';
 import { speak, hush, beep, keepAwake, canSpeak, isVoiceOn, setVoice, cue, warmCues } from '../voice.js';
+import { springFromSamples } from '../move.js';
 
 const HI = 1046, LO = 523, GO = 1318;
 const fmtClock = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
@@ -199,6 +200,82 @@ export function ReactionPad({ onResult }) {
   </div>`;
 }
 
+// Calm breath hold: a quiet stopwatch. No countdown and no cheering, because the point is to stay relaxed.
+export function BreathHold({ onResult }) {
+  const [st, setSt] = useState('idle'); const [ms, setMs] = useState(0); const t0 = useRef(0);
+  useHushOnLeave();
+  useTick(st === 'run', () => setMs(Date.now() - t0.current), 100);
+  const start = () => { t0.current = Date.now(); setMs(0); setSt('run'); beep(LO, 120, 0.15); };
+  const stop = () => { const s = Math.round((Date.now() - t0.current) / 1000); setSt('done'); beep(LO, 120, 0.15); onResult(s); };
+  return html`<div class="x-card sg-tool">
+    <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Breath hold</div>
+    <${Big} sub=${st === 'run' ? 'Tap Stop at the first clear urge to breathe.' : st === 'done' ? 'Saved into the result below.' : 'Breathe out normally, pinch your nose, then tap Start.'}>${fmtSec(ms)}<small>s</small><//>
+    ${st === 'run' ? html`<button class="x-btn sg-stop" onPointerDown=${stop}><${XIcon} name="stop" size=${20} />Stop</button>`
+      : html`<button class="x-btn" onClick=${start}><${XIcon} name="play" size=${20} />${st === 'done' ? 'Again' : 'Start'}</button>`}
+  </div>`;
+}
+
+// Nose-breathing pacer for the Breathe stage: in for 4, out for 6, for 3 minutes. A soft high
+// tone means breathe in, a low one breathe out, and the circle grows and shrinks with the breath.
+export function BreathPacer({ minutes, onFinish }) {
+  const RUN = (minutes || 3) * 60000, IN = 4000, CYCLE = 10000;
+  const [st, setSt] = useState('idle'); const [ms, setMs] = useState(0); const phase = useRef('');
+  const t0 = useRef(0);
+  useHushOnLeave();
+  useTick(st === 'run', () => {
+    const now = Date.now() - t0.current; setMs(now);
+    const p = now % CYCLE < IN ? 'in' : 'out';
+    if (p !== phase.current) { phase.current = p; beep(p === 'in' ? 660 : 440, 160, 0.12); }
+    if (now >= RUN) { setSt('done'); beep(GO, 400, 0.2); buzz([18, 60, 28]); onFinish(); }
+  }, 100);
+  const start = async () => { setSt('count'); phase.current = ''; speak('Sit or lie down. Breathe in through your nose for four, and out slowly through your nose for six.'); await wait(5500); t0.current = Date.now(); setMs(0); setSt('run'); };
+  const into = ms % CYCLE;
+  const breathingIn = st === 'run' && into < IN;
+  const scale = st !== 'run' ? 0.6 : breathingIn ? 0.6 + 0.4 * (into / IN) : 1 - 0.4 * ((into - IN) / (CYCLE - IN));
+  return html`<div class="x-card sg-tool" style="align-items:center">
+    <div class="x-kicker"><${XIcon} name="timer" size=${16} /> Nose breathing · in 4, out 6</div>
+    <div class="sg-pacer" aria-hidden="true"><i style=${'transform:scale(' + scale.toFixed(3) + ')'}></i><b>${st === 'run' ? (breathingIn ? 'In' : 'Out') : st === 'done' ? 'Done' : 'Ready'}</b></div>
+    <${Big} sub=${st === 'run' ? (breathingIn ? 'Breathe in through your nose' : 'Breathe out slowly through your nose') : st === 'done' ? 'Session saved. Well breathed.' : 'Mouth closed, shoulders soft. The tones lead your breath.'}>${fmtClock(RUN - (st === 'run' ? ms : st === 'done' ? RUN : 0))}<//>
+    ${st === 'run' ? html`<button class="x-btn ghost sm" onClick=${() => { setSt('idle'); hush(); }}>Stop early</button>`
+      : st === 'done' ? null : html`<button class="x-btn" disabled=${st === 'count'} onClick=${start}><${XIcon} name="play" size=${20} />${st === 'count' ? 'Settle in…' : 'Start ' + (minutes || 3) + ' minutes'}</button>`}
+  </div>`;
+}
+
+// Pogo spring score from the motion sensor. iPhones ask permission on the first tap.
+export function SpringSensor({ onResult }) {
+  const [st, setSt] = useState('idle'); const [out, setOut] = useState(null); const [left, setLeft] = useState(10);
+  const samples = useRef([]), handler = useRef(null);
+  useHushOnLeave();
+  const detach = () => { if (handler.current) window.removeEventListener('devicemotion', handler.current); handler.current = null; };
+  useEffect(() => detach, []);
+  const finish = () => {
+    detach(); beep(LO, 300); cue('stop'); buzz([18, 60, 28]);
+    const r = springFromSamples(samples.current);
+    setOut(r); setSt(r ? 'done' : 'retry');
+    if (r) onResult(r.score);
+  };
+  const start = async () => {
+    if (typeof DeviceMotionEvent === 'undefined') { setSt('none'); return; }
+    if (typeof DeviceMotionEvent.requestPermission === 'function') {
+      try { if ((await DeviceMotionEvent.requestPermission()) !== 'granted') { setSt('denied'); return; } } catch (e) { setSt('denied'); return; }
+    }
+    samples.current = []; setOut(null); setSt('count');
+    let seen = false;
+    handler.current = (e) => { const a = e.accelerationIncludingGravity; if (!a || a.x == null) return; seen = true; samples.current.push({ t: performance.now(), a: Math.hypot(a.x, a.y, a.z) }); };
+    window.addEventListener('devicemotion', handler.current);
+    await countIn('Phone flat on your chest. Quick pogo hops until the stop.');
+    if (!seen) { detach(); setSt('none'); return; }
+    samples.current = []; setSt('run');
+    for (let n = 10; n > 0; n--) { setLeft(n); if (n <= 3) cue(n); await wait(1000); }
+    finish();
+  };
+  return html`<div class="x-card sg-tool">
+    <div class="x-kicker"><${XIcon} name="strong" size=${16} /> Spring sensor</div>
+    <${Big} sub=${st === 'run' ? 'Hop, hop, hop. Short, bouncy contacts.' : st === 'done' ? 'Ground ' + out.contactMs + ' ms · hop ' + out.heightCm + ' cm · ' + out.hops + ' hops' : st === 'retry' ? 'Not enough clean hops were felt. Hold the phone tight to your chest and try again.' : st === 'none' ? 'This device has no motion sensor. Use a phone.' : st === 'denied' ? 'Motion access was not allowed. Allow it and try again.' : '10 seconds of pogo hops. Higher score means springier.'}>${st === 'run' ? left : out ? out.score.toFixed(2) : '–'}<small>${st === 'run' ? 's' : ''}</small><//>
+    ${st === 'run' ? null : html`<button class="x-btn" disabled=${st === 'count'} onClick=${start}><${XIcon} name="play" size=${20} />${st === 'count' ? 'Get ready…' : st === 'idle' ? 'Start' : 'Hop again'}</button>`}
+  </div>`;
+}
+
 // Which helper each test gets. Counting tests other than calf raises keep the plain counter.
 export function TestTool({ t, side, onResult }) {
   const label = t.sides ? side[0].toUpperCase() + side.slice(1) : '';
@@ -209,13 +286,15 @@ export function TestTool({ t, side, onResult }) {
     case 'run12': return html`<${LapRun} onResult=${onResult} />`;
     case 'sprint20': return html`<${SprintTimer} onResult=${onResult} />`;
     case 'reaction': return html`<${ReactionPad} onResult=${onResult} />`;
+    case 'breath': return html`<${BreathHold} onResult=${onResult} />`;
+    case 'spring': return html`<${SpringSensor} onResult=${onResult} />`;
     default: return null;
   }
 }
 
 // Voice coach for a programme session: reads each exercise, runs a spoken rest timer between
 // exercises, and ticks the session off at the end.
-export function SessionCoach({ items, title, onFinish, backHref, intro, doneText }) {
+export function SessionCoach({ items, title, onFinish, backHref, intro, doneText, doneCue }) {
   const [i, setI] = useState(-1); const [rest, setRest] = useState(0); const [done, setDone] = useState(false);
   const until = useRef(0);
   useHushOnLeave();
@@ -223,7 +302,7 @@ export function SessionCoach({ items, title, onFinish, backHref, intro, doneText
   const x = items[i];
   const read = (n) => { const y = items[n]; if (y) speak('Exercise ' + (n + 1) + ' of ' + items.length + '. ' + y.name + '. ' + y.dose + '. ' + y.steps.join(' ')); };
   const goTo = (n) => { setRest(0); if (n >= items.length) { finish(); return; } setI(n); if (n > 0) cue('next').then(() => read(n)); else cue('ready').then(() => read(n)); };
-  const finish = async () => { setDone(true); setRest(0); beep(GO, 500); buzz([18, 60, 28, 60, 40]); cue(doneText ? 'warmupdone' : 'sessiondone'); await onFinish(); };
+  const finish = async () => { setDone(true); setRest(0); beep(GO, 500); buzz([18, 60, 28, 60, 40]); cue(doneCue || (doneText ? 'warmupdone' : 'sessiondone')); await onFinish(); };
   useTick(rest > 0, () => {
     const l = Math.ceil((until.current - Date.now()) / 1000);
     if (l !== rest) { setRest(Math.max(0, l)); if (l <= 3 && l > 0) cue(l); }
