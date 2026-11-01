@@ -67,14 +67,32 @@ export function XScale({ value, words, onChange, label }) {
   return html`<div class="x-scale" role="group" aria-label=${label}>${words.map((w, i) => html`<button type="button" aria-pressed=${String(value === i + 1)} onClick=${() => onChange(i + 1)}><b>${i + 1}</b>${w}</button>`)}</div>`;
 }
 
-export function XField({ label, value, onInput, type, placeholder, inputmode, autocomplete, rows, min, max, step, options, id }) {
+export function XField({ label, value, onInput, type, placeholder, inputmode, autocomplete, rows, min, max, step, options, id, invalid, error }) {
   const [fid] = useState(() => id || 'xf' + Math.random().toString(36).slice(2, 8));
-  const common = { id: fid, class: 'x-input', value: value ?? '', placeholder, autocomplete, inputmode };
+  const bad = !!(invalid || error);
+  const common = { id: fid, class: 'x-input' + (bad ? ' bad' : ''), value: value ?? '', placeholder, autocomplete, inputmode, 'aria-invalid': bad ? 'true' : null, 'aria-describedby': error ? fid + '-e' : null };
   return html`<label class="x-field" for=${fid}><span>${label}</span>${
     options ? html`<select ...${common} onChange=${(e) => onInput(e.target.value)}>${options.map((o) => html`<option value=${typeof o === 'string' ? o : o.value}>${typeof o === 'string' ? o : o.label}</option>`)}</select>`
     : type === 'textarea' ? html`<textarea ...${common} rows=${rows || 4} onInput=${(e) => onInput(e.target.value)}></textarea>`
-    : html`<input ...${common} type=${type || 'text'} min=${min} max=${max} step=${step} onInput=${(e) => onInput(e.target.value)} />`}</label>`;
+    : html`<input ...${common} type=${type || 'text'} min=${min} max=${max} step=${step} onInput=${(e) => onInput(e.target.value)} />`}${error ? html`<em class="x-ferr" id=${fid + '-e'}>${error}</em>` : null}</label>`;
 }
+
+// A question that still needs an answer: marks its card and names what is missing.
+export const Missing = ({ text }) => html`<em class="x-ferr" role="note">${text || 'Please answer this one.'}</em>`;
+
+// Moves to the first marked question after a failed save, so nobody hunts for it.
+export function focusFirstError() {
+  setTimeout(() => {
+    const el = document.querySelector('.x-missing, .x-input.bad');
+    if (!el) return;
+    el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+    const f = el.matches('input,select,textarea') ? el : el.querySelector('button,input,select,textarea');
+    if (f) f.focus({ preventScroll: true });
+  }, 30);
+}
+
+// Equipment lists read as one sentence: "A step, a wall".
+export const equipList = (list) => (list || []).map((x, i) => (i ? x.charAt(0).toLowerCase() + x.slice(1) : x)).join(', ');
 
 export const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 export const initial = (n) => (String(n || '?').trim()[0] || '?').toUpperCase();

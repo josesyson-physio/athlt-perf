@@ -39,6 +39,22 @@ export function newTeamCode() {
 export const teamExists = (code) => store.getState().users.some((u) => isCoachRole(u.role) && u.teamCode === String(code || '').trim().toUpperCase());
 export const coachesOf = (code) => store.getState().users.filter((u) => isCoachRole(u.role) && u.teamCode === code);
 
+// Field-by-field problems, worded for the person filling the form.
+export function signupFieldErrors(f) {
+  const e = {};
+  if (!String(f.name || '').trim()) e.name = 'Add your name.';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail(f.email))) e.email = 'Add an email like name@example.com.';
+  else if (store.getState().users.some((u) => u.email === cleanEmail(f.email))) e.email = 'This email already has an account on this phone. Sign in instead.';
+  if (String(f.password || '').length < 6) e.password = 'Use at least 6 characters.';
+  if (f.role === 'athlete') {
+    const y = Number(f.birthYear), now = new Date().getFullYear();
+    if (!(y > now - 80 && y < now - 7)) e.birthYear = 'Add the year you were born, for example 2008.';
+    if (!f.sex) e.sex = 'Choose one. Fitness equations need it.';
+    if (f.teamCode && !teamExists(f.teamCode)) e.teamCode = "No team with this code on this phone. Check it with your coach, or leave it empty.";
+  }
+  return e;
+}
+
 export function signupErrors(f) {
   const e = [];
   if (!String(f.name || '').trim()) e.push('your name');
@@ -83,7 +99,17 @@ export async function signIn(email, password) {
 }
 
 export function signOut() { remember(null); }
+// Demo accounts switch with one tap. A real account on a shared phone needs its own password,
+// so nobody can open another athlete's records or a coach's inbox.
 export function switchTo(userId) { remember(userId); }
+export const needsPassword = (u) => !!u && !u.example;
+export async function switchWithPassword(userId, password) {
+  const u = store.getState().users.find((x) => x.id === userId);
+  if (!u) return false;
+  if (needsPassword(u) && u.passHash !== (await hash(u.email, password || ''))) return false;
+  remember(u.id);
+  return true;
+}
 
 export async function joinTeam(code) {
   const u = me();

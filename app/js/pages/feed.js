@@ -146,8 +146,8 @@ export function Feed({ query }) {
   const posts = feedFor(u);
   const canReact = u.role === 'athlete';
   const stars = new Set(starred(u));
-  const top = html`<div class=${'x-feedtabs' + (tab === 'foryou' ? ' over' : '')} role="tablist" aria-label="Feed">${[['foryou', 'For you'], ['insights', 'Insights'], ['saved', 'Saved']].filter((t) => canReact || t[0] !== 'saved').map(([k, l]) => html`<button type="button" role="tab" aria-selected=${String(tab === k)} onClick=${() => setTab(k)}>${l}</button>`)}</div>`;
-  if (!posts.length) return html`<div class="x-page">${top}<div class="x-card" style="align-items:center;text-align:center;padding:36px 18px"><span class="x-badge"><${XIcon} name="feed" /></span><b>Nothing posted yet</b><p class="x-muted x-small">Stories, videos, slides and insights from coaches and physios show up here.</p></div></div>`;
+  const top = html`<div class=${'x-feedtabs' + (tab === 'foryou' && posts.length ? ' over' : '')} role="tablist" aria-label="Feed">${[['foryou', 'For you'], ['insights', 'Insights'], ['saved', 'Saved']].filter((t) => canReact || t[0] !== 'saved').map(([k, l]) => html`<button type="button" role="tab" aria-selected=${String(tab === k)} onClick=${() => setTab(k)}>${l}</button>`)}</div>`;
+  if (!posts.length) return html`<div class="x-page">${top}<div class="x-card" style="align-items:center;text-align:center;padding:36px 18px"><span class="x-badge"><${XIcon} name="feed" /></span><b>Nothing posted yet</b><p class="x-muted x-small">Stories, videos, slides and insights from coaches and physios show up here.</p>${canReact ? html`<a class="x-btn soft sm" href="#/find">Find a coach or physio</a>` : html`<a class="x-btn soft sm" href="#/post">Write the first post</a>`}</div></div>`;
   if (tab === 'foryou') return html`<div class="x-reels-wrap">${top}<div class="x-reels">${posts.map((p) => html`<${Reel} key=${p.id} p=${p} canReact=${canReact} />`)}</div></div>`;
   const shown = tab === 'saved' ? posts.filter((p) => stars.has(p.id)) : posts;
   return html`<div class="x-page">${top}
