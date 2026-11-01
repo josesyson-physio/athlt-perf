@@ -19,6 +19,10 @@
     sideplank: 'Left and right within 5% of each other counts as balanced (McGill).',
     reaction: 'Phone-measured: touch screens and speakers add their own delay, so compare only with your own past results on the same phone.',
     squeeze: 'Any groin pain on the 5-second squeeze is worth showing a physio (Thorborg 2017).',
+    rotation: 'Trunk rotation to a wall: no published concern level for a left/right gap. Sportgram marks a turn more than 10% shorter on one side to watch, and you compare with your own past turns.',
+    posture: 'Head-to-wall gap (occiput-to-wall distance) is a standard clinic posture measure. 0 cm is the goal; compare with your own past results.',
+    breath: 'Calm breath hold after a relaxed breath out (a control pause). There are no published levels for athletes, so compare only with yourself. Never hold to the limit, and never in water.',
+    spring: 'Spring score is the reactive strength index: hop height in metres divided by ground time in seconds (Flanagan & Comyns 2008). Phone-measured, so compare only with your own results on the same phone.',
   };
 
   // area: the Mirror row the test feeds. sides: measured left and right. lowerBetter: times.
@@ -45,11 +49,21 @@
       steps: ['Mark a start and a finish line 20 m apart.', 'Start still, one foot forward. Your friend starts the watch on your first move.', 'Sprint through the finish. Best of 3, with full rest.'] },
     { key: 'reaction', name: 'Reaction start', area: 'speed', unit: 'ms', sides: false, lowerBetter: true, phone: true, equipment: ['Your phone'],
       steps: ['Hold the phone in a sprint-start or ready position, thumb just above the screen.', 'Wait for the beep and flash, then tap as fast as you can. Tapping early is a false start.', 'Five tries. Your result is the middle time of the five.'] },
+    // Move Better checks: posture, breathing, turning and spring.
+    { key: 'posture', name: 'Head-to-wall gap', area: 'posture', unit: 'cm', sides: false, lowerBetter: true, group: 'move', equipment: ['A wall', 'A friend with a ruler'],
+      steps: ['Stand with your heels, bottom and shoulder blades against a wall.', 'Stand tall and look straight ahead. Do not tip your chin up.', 'A friend measures the gap from the back of your head to the wall. Touching is 0 cm.'] },
+    { key: 'breath', name: 'Calm breath hold', area: 'breath', unit: 's', sides: false, group: 'move', equipment: ['A phone stopwatch'],
+      steps: ['Sit and breathe quietly through your nose for one minute.', 'After a normal, relaxed breath out, pinch your nose and start the timer.', 'Stop at the first clear urge to breathe, not when you cannot hold any more. Breathe in gently through your nose.'] },
+    { key: 'rotation', name: 'Turn to the wall', area: 'spine', unit: 'cm', sides: true, group: 'move', equipment: ['A wall', 'A tape measure', 'Chalk or tape'],
+      steps: ['Stand with your back to a wall, an arm\'s length away. Mark a line on the wall behind your spine and fix a tape measure across the wall at shoulder height, 0 at the line.', 'Feet still, hip-width apart. Turn your upper body to one side and touch the tape behind you as far along as you can, arm straight at shoulder height.', 'Read the tape where your fingers reach. Turning to the left is your left side. Best of 2.'] },
+    { key: 'spring', name: 'Pogo spring score', area: 'spring', unit: 'score', sides: false, phone: true, group: 'move', equipment: ['Your phone', 'Flat, hard ground'],
+      steps: ['Hold the phone flat against your chest with both hands.', 'Press start, then do quick pogo hops on the balls of your feet, knees almost straight, as bouncy as you can.', 'The phone feels each take-off and landing and works out how high you hop for how short a touch.'] },
   ];
 
   const AREAS = [
     { key: 'core', name: 'Core' }, { key: 'balance', name: 'Balance' }, { key: 'hamstring', name: 'Hamstring' },
     { key: 'knee', name: 'Knee' }, { key: 'calf', name: 'Calf' }, { key: 'ankle', name: 'Ankle' },
+    { key: 'spine', name: 'Spine turn' },
   ];
 
   const num = (v) => (v === '' || v == null ? NaN : Number(v));
@@ -92,6 +106,8 @@
         return diff > 4 ? out('work', Side + ' leg reaches ' + diff + ' cm less.') : out('even', 'Balance even on both legs.');
       case 'sideplank':
         return lsi < 95 ? out('watch', Side + ' side plank is ' + (100 - lsi) + '% shorter.') : out('even', 'Side planks even.');
+      case 'rotation':
+        return lsi < 90 ? out('watch', Side + ' turn reaches ' + (100 - lsi) + '% less.') : out('even', 'You turn about the same both ways.');
       default:
         return null;
     }
@@ -139,8 +155,8 @@
       const now = num(h[0].value), g = ghost(results, t.key, h[0].id);
       if (!isNum(now) || !g || !isNum(g.value)) return null;
       const better = t.lowerBetter ? now < g.value : now > g.value;
-      const change = round(Math.abs(now - g.value), t.unit === 's' ? 2 : 0);
-      return better ? { test: t.key, name: t.name, change, unit: t.unit, text: t.name + (t.lowerBetter ? ' ' + change + ' ' + t.unit + ' faster' : ' up ' + change + ' ' + t.unit) } : null;
+      const change = round(Math.abs(now - g.value), t.unit === 's' || t.unit === 'score' ? 2 : 0);
+      return better ? { test: t.key, name: t.name, change, unit: t.unit, text: t.name + (t.lowerBetter ? (t.unit === 's' || t.unit === 'ms' ? ' ' + change + ' ' + t.unit + ' faster' : ' down ' + change + ' ' + t.unit) : ' up ' + change + (t.unit === 'score' ? '' : ' ' + t.unit)) } : null;
     }).filter(Boolean);
   }
 
@@ -148,7 +164,7 @@
   function check(testKey, entry) {
     const t = byKey(testKey);
     if (!t) return ['Unknown test.'];
-    const max = { cm: 400, raises: 150, reps: 150, s: 600, m: 6000, ms: 2000, 'pain 0 to 10': 10 }[t.unit];
+    const max = { cm: 400, raises: 150, reps: 150, s: 600, m: 6000, ms: 2000, score: 5, 'pain 0 to 10': 10 }[t.unit];
     const vals = t.sides ? [['left', entry.left], ['right', entry.right]] : [['value', entry.value]];
     const errs = [];
     vals.forEach(([k, v]) => {

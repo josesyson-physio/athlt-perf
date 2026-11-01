@@ -146,3 +146,10 @@ export async function startLadder(athleteId, athleteUserId, stages, note) {
 export async function logLadder(ladder, entry) {
   return store.saveRecord('ladders', Object.assign({}, ladder, { log: (ladder.log || []).concat([Object.assign({ date: dayIso(new Date()) }, entry)]) }));
 }
+
+// ---------- warm-ups and Move Better sessions ----------
+export const movesFor = (athleteId) => store.getState().moves.filter((m) => m.athleteId === athleteId);
+// kind: 'warmup' or 'move' (with the Move Better stage).
+export function logMove(athleteId, kind, stage) {
+  return store.saveRecord('moves', { id: store.newId('MV'), athleteId, kind, stage: stage || null, date: dayIso(new Date()) });
+}

@@ -50,7 +50,10 @@ export const CUES = {
   minute: 'One minute left. Push!', ten: 'Ten seconds! Hold it!', onemore: 'Come on! One more!', stop: "Stop! That's it!",
   restover: "Rest over. Let's go!", next: "Next exercise. Let's go!", sessiondone: 'Session done! You showed up today. Proud of you!',
   ghost: 'You beat your ghost! New best!', warmupdone: "Warm-up done. You're ready. Go fly!", stage: 'Stage passed! Next level unlocked!',
+  levelup: "Level up! You're climbing the road. Keep going!", badge: 'New badge! You earned that one!', quest: "Quest complete! That's how champions are made!",
 };
+// sessiondone has no clip yet: the first recording was silent, so the phone voice says it until it is re-recorded.
+const NO_CLIP = new Set(['sessiondone']);
 // Clips play through the same sound engine as the beeps. Phones (iPhones most of all) only let a page
 // make sound after a tap, so any tap in the app wakes the engine; after that, cues can play
 // mid-timer without a tap of their own.
@@ -59,7 +62,7 @@ const bufs = {};
 let playing = null;
 function load(name) {
   const c = ctx();
-  if (!c) return Promise.resolve(null);
+  if (!c || NO_CLIP.has(name)) return Promise.resolve(null);
   if (!bufs[name]) {
     bufs[name] = fetch('audio/coach/' + name + '.mp3').then((r) => r.arrayBuffer())
       .then((b) => new Promise((ok, no) => c.decodeAudioData(b, ok, no))).catch(() => { delete bufs[name]; return null; });

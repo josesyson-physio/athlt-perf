@@ -1,6 +1,6 @@
 // Basic exercise library: no machines, only things anyone can find or afford.
 // area matches the free tests and the Mirror rows. dose is a starting point a coach can change.
-export const AREAS = { ankle: 'Ankle and foot', calf: 'Calf', knee: 'Knee', hamstring: 'Hamstring', groin: 'Hip and groin', core: 'Core', balance: 'Balance', upper: 'Upper body', stamina: 'Stamina', speed: 'Speed and power' };
+export const AREAS = { ankle: 'Ankle and foot', calf: 'Calf', knee: 'Knee', hamstring: 'Hamstring', groin: 'Hip and groin', core: 'Core', spine: 'Spine turn', balance: 'Balance', upper: 'Upper body', stamina: 'Stamina', speed: 'Speed and power' };
 
 export const EXERCISES = [
   { key: 'ankle-wall', area: 'ankle', name: 'Ankle stretch, knee to wall', equipment: 'A wall', dose: '2 × 10 each side', steps: ['Foot a hand-width from the wall.', 'Push the knee to the wall, heel down.', 'Hold 2 seconds, back, repeat.'] },
@@ -19,6 +19,8 @@ export const EXERCISES = [
   { key: 'bird-dog', area: 'core', name: 'Bird dog', equipment: 'Nothing', dose: '3 × 10 each side', steps: ['On hands and knees.', 'Reach one arm forward and the opposite leg back.', 'Keep your back still. Switch.'] },
   { key: 'side-plank', area: 'core', name: 'Side plank', equipment: 'Nothing', dose: '3 × 30 s each side', steps: ['Elbow under shoulder, feet stacked.', 'Lift your hips into a straight line.', 'Hold without sagging.'] },
   { key: 'dead-bug', area: 'core', name: 'Dead bug', equipment: 'Nothing', dose: '3 × 10', steps: ['On your back, arms up, knees bent at right angles.', 'Lower one arm and the opposite leg slowly.', 'Lower back stays on the floor.'] },
+  { key: 'open-book', area: 'spine', name: 'Open books', equipment: 'Nothing', dose: '2 × 8 each side', steps: ['Lie on your side, knees bent and stacked, arms straight in front.', 'Open the top arm over to the other side, eyes on your hand.', 'Knees stay together. Breathe out as you open.'] },
+  { key: 'thread-needle', area: 'spine', name: 'Thread the needle', equipment: 'Nothing', dose: '2 × 8 each side', steps: ['On hands and knees.', 'Slide one arm under your body along the floor.', 'Then open the same arm up to the ceiling.'] },
   { key: 'one-leg-stand', area: 'balance', name: 'One-leg stand, eyes open then closed', equipment: 'Nothing', dose: '3 × 30 s each leg', steps: ['Stand on one leg near a wall.', 'Hold 30 seconds with eyes open.', 'Then try with eyes closed.'] },
   { key: 'star-reach', area: 'balance', name: 'Star reach', equipment: 'Tape or chalk lines', dose: '3 × 8 each leg', steps: ['Stand on one leg in the middle of the star.', 'Reach the other foot forward, side and back.', 'Tap lightly, return, stay balanced.'] },
   { key: 'hop-stick', area: 'balance', name: 'Hop and hold', equipment: 'Nothing', dose: '3 × 8 each leg', steps: ['Hop forward on one leg.', 'Land softly, knee over toes.', 'Hold still for 2 seconds.'] },
