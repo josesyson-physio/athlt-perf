@@ -9,8 +9,29 @@ import { me, ROLES } from '../session.js';
 import { feedFor, toggleReaction, myReaction, reactionsOn, REACTIONS, POST_TYPES, starred } from '../social.js';
 import { connect, linkBetween } from '../connect.js';
 import { ExerciseRows } from './parts.js';
+import { today } from '../monitor.js';
 
-const TYPE_ICON = { insight: 'bulb', story: 'comic', slides: 'slides', video: 'play', photo: 'image', document: 'file', training: 'run' };
+// Dr. Jose's built-in posts load with the feed, in their own small file.
+let AUTO = null;
+let autoLoading = null;
+function useAuto() {
+  const [m, setM] = useState(AUTO);
+  useEffect(() => {
+    if (m) return;
+    autoLoading = autoLoading || import('./autoview.js').then((x) => { AUTO = x; return x; });
+    autoLoading.then(setM).catch(() => {});
+  }, []);
+  return m;
+}
+const allPosts = (u, auto) => {
+  const own = feedFor(u);
+  if (!auto) return own;
+  return own.concat(auto.dailyPosts(today())).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+};
+const authorHref = (p) => (p.auto ? null : '#/pro/' + p.authorId);
+
+const POST_LABEL = Object.assign({ meme: 'Meme', chart: 'Exercise chart' }, POST_TYPES);
+const TYPE_ICON = { meme: 'image', chart: 'train', insight: 'bulb', story: 'comic', slides: 'slides', video: 'play', photo: 'image', document: 'file', training: 'run' };
 const user = (id) => store.getState().users.find((u) => u.id === id) || null;
 export const proLine = (u, fallbackRole) => [ROLES[(u && u.role) || fallbackRole] || 'Coach', u && u.speciality].filter(Boolean).join(' · ');
 
@@ -79,6 +100,7 @@ function TextPost({ p }) {
 }
 
 export function PostBody({ p, reel }) {
+  if (p.auto && AUTO && (p.type === 'video' || p.type === 'meme' || p.type === 'chart')) return html`<${AUTO.AutoBody} p=${p} reel=${reel} />`;
   if (p.type === 'story') return html`<${Comic} p=${p} />`;
   if (p.type === 'slides') return p.slides && p.slides.length ? html`<${Deck} p=${p} />` : html`<${FileView} p=${p} />`;
   if (p.type === 'video') return html`<${Video} p=${p} fill=${reel} />`;
@@ -106,17 +128,25 @@ function ConnectChip({ proId, dark }) {
   return html`<button type="button" class=${'x-connect' + (dark ? ' dark' : '')} disabled=${!!l} onClick=${async (e) => { e.preventDefault(); await connect(proId); toast('Request sent.'); }}>${l ? 'Requested' : 'Connect'}</button>`;
 }
 
+// Dr. Jose gets the app logo colours and an "auto" mark, so nobody takes him for a real person.
+function Avatar({ p, soft }) {
+  if (p.auto) return html`<span class="x-avatar dj-avatar" title="Automated coach">DJ<i aria-hidden="true">auto</i></span>`;
+  return html`<a class=${'x-avatar' + (soft ? ' soft' : '')} href=${'#/pro/' + p.authorId}>${initial(p.authorName)}</a>`;
+}
+
 // LinkedIn-style card for the Insights tab, profiles and the pro's own posts.
 export function PostCard({ p, canReact, onDelete }) {
   const a = user(p.authorId);
   const text = p.type !== 'story' && p.type !== 'slides';
+  const href = authorHref(p);
   return html`<article class="x-post">
-    <div class="x-post-head"><a class="x-avatar soft" href=${'#/pro/' + p.authorId}>${initial(p.authorName)}</a><div class="grow"><a href=${'#/pro/' + p.authorId} style="color:inherit"><b>${p.authorName}</b></a><div class="x-small x-muted">${proLine(a, p.authorRole)} · ${ago(p.createdAt)}</div></div>
-      <${ConnectChip} proId=${p.authorId} /><span class="x-chip tint"><${XIcon} name=${TYPE_ICON[p.type] || 'bulb'} size=${14} />${POST_TYPES[p.type] || 'Post'}</span></div>
+    <div class="x-post-head"><${Avatar} p=${p} soft=${true} /><div class="grow">${href ? html`<a href=${href} style="color:inherit"><b>${p.authorName}</b></a>` : html`<b>${p.authorName}</b>`}<div class="x-small x-muted">${p.authorLine || proLine(a, p.authorRole)} · ${ago(p.createdAt)}</div></div>
+      ${p.auto ? null : html`<${ConnectChip} proId=${p.authorId} />`}<span class="x-chip tint"><${XIcon} name=${TYPE_ICON[p.type] || 'bulb'} size=${14} />${POST_LABEL[p.type] || 'Post'}</span></div>
     <h3>${p.title}</h3>
     ${text && p.body ? html`<p>${p.body}</p>` : null}
     <${PostBody} p=${p} />
     ${!text && p.body ? html`<p>${p.body}</p>` : null}
+    ${p.auto && AUTO ? html`<${AUTO.AutoFoot} p=${p} />` : null}
     <${Reactions} p=${p} canReact=${canReact} onDelete=${onDelete} />
   </article>`;
 }
@@ -128,9 +158,10 @@ function Reel({ p, canReact }) {
   return html`<section class=${'x-reel kind-' + p.type} aria-label=${p.title}>
     <div class="x-reel-media"><${PostBody} p=${p} reel=${true} /></div>
     <div class="x-reel-info">
-      <div style="display:flex;align-items:center;gap:10px"><a class="x-avatar" href=${'#/pro/' + p.authorId}>${initial(p.authorName)}</a><div style="min-width:0"><a href=${'#/pro/' + p.authorId} style="color:#fff"><b>${p.authorName}</b></a><div class="x-small" style="opacity:.75">${proLine(a, p.authorRole)}</div></div><${ConnectChip} proId=${p.authorId} dark=${true} /></div>
+      <div style="display:flex;align-items:center;gap:10px"><${Avatar} p=${p} /><div style="min-width:0">${authorHref(p) ? html`<a href=${authorHref(p)} style="color:#fff"><b>${p.authorName}</b></a>` : html`<b>${p.authorName}</b>`}<div class="x-small" style="opacity:.75">${p.authorLine || proLine(a, p.authorRole)}</div></div>${p.auto ? null : html`<${ConnectChip} proId=${p.authorId} dark=${true} />`}</div>
       ${p.type !== 'insight' ? html`<b class="x-reel-title">${p.title}</b>` : null}
       ${p.type !== 'insight' && p.body ? html`<p class="x-reel-body">${p.body}</p>` : null}
+      ${p.auto && AUTO && p.link ? html`<a class="x-connect dark dj-reel-link" href=${p.link[0]}>${p.link[1]}</a>` : null}
     </div>
     <div class="x-rail">${REACTIONS.map((rx) => {
       const n = rs.filter((x) => x.kind === rx.key).length;
@@ -143,10 +174,12 @@ function Reel({ p, canReact }) {
 export function Feed({ query }) {
   const u = me();
   const [tab, setTab] = useState(query.get('show') === 'starred' ? 'saved' : query.get('show') || 'foryou');
-  const posts = feedFor(u);
+  const auto = useAuto();
+  const posts = allPosts(u, auto);
   const canReact = u.role === 'athlete';
   const stars = new Set(starred(u));
   const top = html`<div class=${'x-feedtabs' + (tab === 'foryou' && posts.length ? ' over' : '')} role="tablist" aria-label="Feed">${[['foryou', 'For you'], ['insights', 'Insights'], ['saved', 'Saved']].filter((t) => canReact || t[0] !== 'saved').map(([k, l]) => html`<button type="button" role="tab" aria-selected=${String(tab === k)} onClick=${() => setTab(k)}>${l}</button>`)}</div>`;
+  if (!posts.length && !auto) return html`<div class="x-page">${top}</div>`;
   if (!posts.length) return html`<div class="x-page">${top}<div class="x-card" style="align-items:center;text-align:center;padding:36px 18px"><span class="x-badge"><${XIcon} name="feed" /></span><b>Nothing posted yet</b><p class="x-muted x-small">Stories, videos, slides and insights from coaches and physios show up here.</p>${canReact ? html`<a class="x-btn soft sm" href="#/find">Find a coach or physio</a>` : html`<a class="x-btn soft sm" href="#/post">Write the first post</a>`}</div></div>`;
   if (tab === 'foryou') return html`<div class="x-reels-wrap">${top}<div class="x-reels">${posts.map((p) => html`<${Reel} key=${p.id} p=${p} canReact=${canReact} />`)}</div></div>`;
   const shown = tab === 'saved' ? posts.filter((p) => stars.has(p.id)) : posts;
@@ -159,7 +192,9 @@ export function Feed({ query }) {
 
 export function PostPage({ id }) {
   const u = me();
-  const p = store.getState().posts.find((x) => x.id === id);
+  const auto = useAuto();
+  const p = store.getState().posts.find((x) => x.id === id) || (auto && auto.dailyPosts(today()).find((x) => x.id === id));
+  if (!p && !auto && String(id).startsWith('DJ-')) return html`<div class="x-page"></div>`;
   return html`<div class="x-page">
     <div class="x-topbar"><a class="x-link" href="javascript:history.back()"><${XIcon} name="back" size=${20} />Back</a></div>
     ${p ? html`<${PostCard} p=${p} canReact=${u.role === 'athlete'} />` : html`<div class="x-card"><b>Post not found</b></div>`}
