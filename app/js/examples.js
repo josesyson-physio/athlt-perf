@@ -77,5 +77,8 @@ async function loadMonitoring(made) {
 export async function removeExamples() {
   const s = store.getState();
   for (const a of s.athletes.filter((x) => x.example)) await store.deleteAthlete(a.id);
-  for (const k of store.SOCIAL) for (const r of s[k].filter((x) => x.example)) await store.deleteRecord(k, r.id);
+  // Anything a demo account made while someone tried it (chats, reactions, links, posts) goes too.
+  const ids = new Set(s.users.filter((u) => u.example).map((u) => u.id));
+  const theirs = (r) => r.example || [r.userId, r.fromId, r.toId, r.authorId, r.athleteUserId, r.proId].some((v) => v && ids.has(v));
+  for (const k of store.SOCIAL) for (const r of s[k].filter(theirs)) await store.deleteRecord(k, r.id);
 }

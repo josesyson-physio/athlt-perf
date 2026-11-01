@@ -1,8 +1,9 @@
 // First screens: choose athlete or coach, create an account, or sign in.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { go } from '../ui.js';
-import { XIcon, XField, XSeg } from '../xui.js';
-import { signUp, signIn, signupErrors, ROLES } from '../session.js';
+import { XIcon, XField, XSeg, Missing, focusFirstError } from '../xui.js';
+import { signUp, signIn, signupFieldErrors, ROLES } from '../session.js';
+import { RestoreButton } from './accounts.js';
 import { loadDemo } from '../demo.js';
 import { Logo, Wordmark, TAGLINE } from '../logo.js';
 
@@ -34,35 +35,39 @@ const EVENTS = ['', 'Sprints (100 to 400 m)', 'Middle distance (800 to 1500 m)',
 export function SignUp({ role }) {
   const athlete = role === 'athlete';
   const [f, setF] = useState({ role: athlete ? 'athlete' : 'coach', name: '', email: '', password: '', birthYear: '', sex: '', event: '', teamCode: '', speciality: '', place: '' });
-  const [errs, setErrs] = useState([]);
+  const [errs, setErrs] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const live = errs ? signupFieldErrors(f) : {};
   const set = (k) => (v) => setF(Object.assign({}, f, { [k]: v }));
   const submit = async (e) => {
     e.preventDefault();
-    const er = signupErrors(f);
+    const er = signupFieldErrors(f);
     setErrs(er);
-    if (er.length) return;
-    await signUp(f);
-    go('/');
+    if (Object.keys(er).length) { focusFirstError(); return; }
+    setBusy(true);
+    try { await signUp(f); go('/'); } catch (x) { setBusy(false); setErrs({ save: "Couldn't save your account on this phone. Check the browser isn't in private mode and try again." }); }
   };
+  const err = (k) => (errs ? live[k] : null);
   return html`<form class="x-page plain" onSubmit=${submit} novalidate>
     <div class="x-topbar"><a class="x-link" href="#/welcome"><${XIcon} name="back" size=${20} />Back</a><${Brand} /></div>
     <div><h1 class="x-title">${athlete ? 'Join as an athlete' : 'Join as a coach'}</h1><p class="x-sub">${athlete ? 'Athletics first. More sports soon.' : 'Coaches, trainers and physios.'}</p></div>
     ${!athlete ? html`<div class="x-card"><span class="x-small x-muted" style="font-weight:600">I am a</span><${XSeg} label="Role" value=${f.role} onChange=${set('role')} options=${['coach', 'trainer', 'physio'].map((r) => ({ value: r, label: ROLES[r] }))} /></div>` : null}
     <div class="x-card" style="gap:14px">
-      <${XField} label="Full name" value=${f.name} onInput=${set('name')} autocomplete="name" />
-      <${XField} label="Email" type="email" value=${f.email} onInput=${set('email')} autocomplete="email" inputmode="email" />
-      <${XField} label="Password" type="password" value=${f.password} onInput=${set('password')} autocomplete="new-password" />
+      <${XField} label="Full name" value=${f.name} onInput=${set('name')} autocomplete="name" error=${err('name')} />
+      <${XField} label="Email" type="email" value=${f.email} onInput=${set('email')} autocomplete="email" inputmode="email" error=${err('email')} />
+      <${XField} label="Password" type="password" value=${f.password} onInput=${set('password')} autocomplete="new-password" error=${err('password')} />
       ${!athlete ? html`<${XField} label="Speciality (optional)" value=${f.speciality} onInput=${set('speciality')} placeholder="For example: sprints, knee injuries" />
       <${XField} label="Place (optional)" value=${f.place} onInput=${set('place')} placeholder="Town or district" />` : null}
     </div>
     ${athlete ? html`<div class="x-card" style="gap:14px">
-      <${XField} label="Birth year" type="number" inputmode="numeric" value=${f.birthYear} onInput=${set('birthYear')} placeholder="2008" />
-      <div class="x-field"><span>Sex (fitness equations use it)</span><${XSeg} label="Sex" value=${f.sex} onChange=${set('sex')} options=${[{ value: 'female', label: 'Female' }, { value: 'male', label: 'Male' }]} /></div>
+      <${XField} label="Birth year" type="number" inputmode="numeric" value=${f.birthYear} onInput=${set('birthYear')} placeholder="2008" error=${err('birthYear')} />
+      <div class=${'x-field' + (err('sex') ? ' x-missing' : '')}><span>Sex (fitness equations use it)</span><${XSeg} label="Sex" value=${f.sex} onChange=${set('sex')} options=${[{ value: 'female', label: 'Female' }, { value: 'male', label: 'Male' }]} />${err('sex') ? html`<${Missing} text=${err('sex')} />` : null}</div>
       <${XField} label="Main event" value=${f.event} onInput=${set('event')} options=${EVENTS.map((e) => ({ value: e, label: e || 'Choose' }))} />
-      <${XField} label="Team code from your coach (optional)" value=${f.teamCode} onInput=${(v) => set('teamCode')(v.toUpperCase())} placeholder="ABC234" />
+      <${XField} label="Team code from your coach (optional)" value=${f.teamCode} onInput=${(v) => set('teamCode')(v.toUpperCase())} placeholder="ABC234" error=${err('teamCode')} />
     </div>` : null}
-    ${errs.length ? html`<div class="x-err" role="alert">Please add ${errs.join(', ')}.</div>` : null}
-    <button class="x-btn" type="submit">Create account</button>
+    ${errs && Object.keys(live).length ? html`<div class="x-err" role="alert">${Object.keys(live).length === 1 ? 'One thing to fix above.' : Object.keys(live).length + ' things to fix above.'}</div>` : null}
+    ${errs && errs.save ? html`<div class="x-err" role="alert">${errs.save}</div>` : null}
+    <button class="x-btn" type="submit" disabled=${busy}>${busy ? 'Creating your account…' : 'Create account'}</button>
     <p class="x-small x-dim" style="text-align:center">${athlete ? 'If you are under 18, show this app to a parent or guardian before you start.' : 'Athletes find you through your posts and profile, or your team code.'}</p>
   </form>`;
 }
@@ -71,9 +76,12 @@ export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [bad, setBad] = useState(false);
+  const [busy, setBusy] = useState(false);
   const submit = async (e) => {
     e.preventDefault();
+    setBusy(true);
     const u = await signIn(email, password);
+    setBusy(false);
     if (!u) { setBad(true); return; }
     go('/');
   };
@@ -85,7 +93,9 @@ export function SignIn() {
       <${XField} label="Email" type="email" value=${email} onInput=${setEmail} autocomplete="email" inputmode="email" />
       <${XField} label="Password" type="password" value=${password} onInput=${setPassword} autocomplete="current-password" />
     </div>
-    ${bad ? html`<div class="x-err" role="alert">That email and password don't match an account on this phone.</div>` : null}
-    <button class="x-btn" type="submit">Sign in</button>
+    ${bad ? html`<div class="x-err" role="alert">That email and password don't match an account on this phone. New phone? Restore your backup below first.</div>` : null}
+    <button class="x-btn" type="submit" disabled=${busy}>${busy ? 'Signing in…' : 'Sign in'}</button>
+    <div class="x-section">New phone or cleared browser?</div>
+    <div class="x-list"><${RestoreButton} label="Restore my backup" /></div>
   </form>`;
 }

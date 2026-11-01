@@ -39,7 +39,7 @@
       steps: ['Stand on one leg with your toes at the end of a tape line.', 'Reach the other foot as far forward along the line as you can and tap lightly.', 'Come back without losing balance. Measure the reach. Best of 3.'] },
     { key: 'sideplank', name: 'Side plank hold', area: 'core', unit: 's', sides: true, equipment: ['A phone stopwatch'],
       steps: ['Lie on your side, elbow under your shoulder, feet stacked.', 'Lift your hips so your body is in a straight line.', 'Hold as long as you can keep the line. Stop when your hips drop.'] },
-    { key: 'squeeze', name: 'Groin squeeze', area: 'groin', unit: 'pain 0 to 10', sides: false, equipment: ['Nothing'],
+    { key: 'squeeze', name: 'Groin squeeze', area: 'groin', unit: 'pain 0 to 10', sides: false, equipment: ['No equipment'],
       steps: ['Lie on your back, knees bent, feet flat.', 'Put your fist between your knees and squeeze as hard as you can for 5 seconds.', 'Rate any groin pain from 0 (none) to 10 (worst).'] },
     { key: 'run12', name: '12-minute run', area: 'stamina', unit: 'm', sides: false, equipment: ['A track or measured loop', 'A phone stopwatch'],
       steps: ['Warm up for 10 minutes.', 'Run as far as you can in 12 minutes. Walking is allowed.', 'Count laps and record the total distance.'] },

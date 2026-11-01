@@ -4,7 +4,8 @@ import { html, useState } from '../vendor/preact-htm.js';
 import { go, toast } from '../ui.js';
 import { XIcon, XSeg, XField, initial, ago, firstName } from '../xui.js';
 import * as store from '../store.js';
-import { me, signOut, switchTo, ROLES } from '../session.js';
+import { me, signOut, ROLES } from '../session.js';
+import { OtherAccounts, BackupRows } from './accounts.js';
 import { inbox, sendPlan, plansFor, createPost, deletePost, postsBy, POST_TYPES, THEMES, MAX_FILE, MAX_VIDEO, planStatus, ladderFor, startLadder } from '../social.js';
 import { STAGES, stageByKey, ladderStatus } from '../ladder.js';
 import { athletesOf, teamFor, unreadFor, prosOf } from '../connect.js';
@@ -290,7 +291,9 @@ function Me() {
     </div>
     <div class="x-section">Assessment tools</div>
     <div class="x-list">${TOOLS.map(([p, t, d]) => html`<a class="x-row" href=${'#' + p}><div class="grow"><b>${t}</b><span class="x-small x-muted">${d}</span></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`)}</div>
-    ${others.length ? html`<div class="x-section">Other accounts on this phone</div><div class="x-list">${others.map((o) => html`<button class="x-row" type="button" onClick=${() => { switchTo(o.id); go('/'); }}><span class="x-avatar soft">${initial(o.name)}</span><div class="grow"><b>${o.name}</b><span class="x-small x-muted">${ROLES[o.role]}</span></div><span class="x-chev"><${XIcon} name="swap" size=${18} /></span></button>`)}</div>` : null}
+    <div class="x-section">Your data</div>
+    <div class="x-list"><${BackupRows} user=${u} /></div>
+    <${OtherAccounts} others=${others} />
     <button class="x-btn ghost" onClick=${() => { signOut(); go('/welcome'); }}>Sign out</button>
   </div>`;
 }

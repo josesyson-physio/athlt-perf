@@ -1,7 +1,8 @@
 // The athlete app: Home, Feed, Train (programme, tests, Mirror, progress, library), Chat and Me.
 import { html, useState, useEffect } from '../vendor/preact-htm.js';
 import { go, toast, has, downloadFile, buzz } from '../ui.js';
-import { XIcon, XSeg, XScale, XField, firstName, initial, ago } from '../xui.js';
+import { XIcon, XSeg, XScale, XField, firstName, initial, ago, Missing, focusFirstError, equipList } from '../xui.js';
+import { OtherAccounts, BackupRows } from './accounts.js';
 import * as store from '../store.js';
 import { me, myAthlete, signOut, joinTeam, switchTo, ROLES } from '../session.js';
 import { sendReport, myReports, plansFor, resultsFor, planStatus, tickSession, sessionsDone, ladderFor, logLadder, movesFor, logMove } from '../social.js';
@@ -64,7 +65,7 @@ export function AthleteApp({ r }) {
   else if (a === 'journey') page = html`<${Journey} />`;
   else if (a === 'move' && !b) page = html`<${MovePath} />`;
   else if (a === 'move') page = html`<${MoveSession} key=${b} stageKey=${b} />`;
-  else page = html`<div class="x-page"><div class="x-card"><h2>Page not found</h2><a href="#/">Go home</a></div></div>`;
+  else page = html`<${NotFound} />`;
   const active = (p) => (p === '/' ? !a || a === 'pulse' || a === 'journey' : p === '/train' ? TRAIN.includes(a) : p === '/me' ? ME.includes(a) : p === '/feed' ? a === 'feed' || a === 'p' : r.path.startsWith(p));
   const hideTabs = a === 'pulse' || a === 'session' || a === 'warmup' || (a === 'move' && b) || (a === 'tests' && b) || (a === 'chat' && b);
   const unread = unreadFor(me());
@@ -146,7 +147,7 @@ function Today() {
       <p class="x-small x-muted">${physio ? physio.name + ' has been sent a flag and can see your pulse. Go easy on this area until you talk.' : 'Pain at 4 or more two days in a row is worth a physio look. Connect with one so they get these flags.'}</p>
       ${physio ? html`<a class="x-btn soft sm" href=${'#/chat/' + physio.id}><${XIcon} name="chat" size=${18} />Message ${firstName(physio.name)}</a>` : html`<a class="x-btn soft sm" href="#/find">Find a physio</a>`}</div>` : null}
     ${ladder ? html`<a class="x-card" href="#/ladder" style="flex-direction:row;align-items:center;gap:14px;color:inherit"><span class="x-badge"><${XIcon} name="run" /></span><div style="flex:1"><b>Back to running</b><div class="x-small x-muted">${ls.done ? 'Ladder done. Well climbed.' : 'Stage ' + (ls.index + 1) + ' of ' + ls.total + ': ' + stageByKey(ls.current).name}</div></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>` : null}
-    <div class="x-card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${n ? n + '-day streak' : 'Start your streak'}</b><span class="x-small x-dim">Best ${Math.max(n, bestStreak(checkins))}</span></div>
+    <div class="x-card"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:17px">${n ? n + '-day streak' : 'Start your streak'}</b>${Math.max(n, bestStreak(checkins)) > 1 ? html`<span class="x-small x-dim">Best ${Math.max(n, bestStreak(checkins))}</span>` : null}</div>
       <div class="x-week" aria-label="Check-ins this week">${thisWeek(checkins).map((d) => html`<span>${d.l}<i class=${d.on ? 'on' : d.today ? 'today' : ''}></i></span>`)}</div></div>
     ${done ? html`<a class="x-card" href="#/pulse" style="flex-direction:row;align-items:center;gap:14px;color:inherit"><span class="x-badge"><${XIcon} name="check" /></span><div style="flex:1"><b>Pulse done for today</b><div class="x-small x-muted">${done.pain ? 'Pain: ' + (done.regions || []).join(', ') : 'No pain'} · sleep ${done.sleepHours} h</div></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`
     : html`<div class="x-card"><div class="x-kicker">Daily pulse</div><h2>How is your body today?</h2><p class="x-muted">Six quick taps. Keeps your streak alive.</p><a class="x-btn" href="#/pulse" style="margin-top:8px">Start · 30 sec</a></div>`}
@@ -156,7 +157,7 @@ function Today() {
       <div style="flex:1"><b style="font-size:17px">Mirror</b><div class="x-small x-muted">${!rows.length ? 'Do a test to see your left and right' : toWork ? toWork + (toWork > 1 ? ' areas' : ' area') + ' to work on' : 'Left and right look even'}</div></div>
       <span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
     <a class="x-card dark" href=${'#/tests/' + nx.t.key} style="gap:10px;color:#fff">
-      <div style="display:flex;justify-content:space-between"><span class="x-kicker">${nx.last ? 'Beat your ghost' : 'Next test'}</span><span class="x-small x-muted">${nx.last ? 'last ' + ago(nx.last.date + 'T12:00:00') : nx.t.equipment.join(', ')}</span></div>
+      <div style="display:flex;justify-content:space-between"><span class="x-kicker">${nx.last ? 'Beat your ghost' : 'Next test'}</span><span class="x-small x-muted">${nx.last ? 'last ' + ago(nx.last.date + 'T12:00:00') : equipList(nx.t.equipment)}</span></div>
       <b style="font-size:20px;letter-spacing:-.02em">${nx.t.name}</b>
       ${nx.last && g ? html`<div style="display:flex;align-items:baseline;gap:10px"><span class="x-big">${nx.t.sides ? Math.min(Number(nx.last.left), Number(nx.last.right)) : nx.last.value}</span><span class="x-muted">${unitWord(nx.t)} now · ghost ${nx.t.sides ? Math.max(g.left || 0, g.right || 0) : g.value}</span></div>` : html`<span class="x-muted">${nx.t.steps[0]}</span>`}
     </a>
@@ -216,10 +217,12 @@ function Pulse() {
   if (!has(f.sleepHours) || Number(f.sleepHours) < 0 || Number(f.sleepHours) > 16) missing.push('hours of sleep (0 to 16)');
   if (f.ill === null) missing.push('feeling ill');
   if (RED.some(([k]) => typeof f.redFlags[k] !== 'boolean')) missing.push('the 3 safety questions');
+  const miss = (k) => tried && missing.includes(k);
+  const card = (k, extra) => 'x-card' + (miss(k) ? ' x-missing' : '') + (extra ? ' ' + extra : '');
   if (urgent) return html`<div class="x-page plain"><div class="x-urgent" role="alert"><h1>Stop. Don't train today.</h1><p>Tell your coach now and see a doctor today before you train again.</p><p>Chest pain, fainting or trouble breathing right now: call 112.</p></div><a class="x-btn dark" href="#/">I've told my coach</a></div>`;
   const save = async () => {
     setTried(true);
-    if (missing.length) return;
+    if (missing.length) { focusFirstError(); return; }
     const rec = Object.assign({}, f, { id: existing ? existing.id : store.newId('CI'), athleteId: a.id, date: today(), enteredOn: 'own phone', sleepHours: Number(f.sleepHours), secondsToComplete: Math.round((Date.now() - started) / 1000) });
     if (!rec.pain) { rec.regions = []; rec.painScore = ''; rec.painAffectsRunning = false; }
     await store.saveRecord('checkins', rec);
@@ -231,17 +234,18 @@ function Pulse() {
   return html`<div class="x-page plain">
     <div class="x-topbar"><a class="x-link" href="#/">Cancel</a><span class="x-small x-dim" style="font-weight:600">Daily pulse</span></div>
     <h1 class="x-title md">How is your body today?</h1>
-    <div class="x-card"><b>Any pain or niggle today?</b><${XSeg} label="Pain" value=${f.pain} options=${yesNo} onChange=${(v) => set('pain', v)} />
+    <div class=${card('pain') + (miss('where it hurts') || miss('how bad') ? ' x-missing' : '')}><b>Any pain or niggle today?</b><${XSeg} label="Pain" value=${f.pain} options=${yesNo} onChange=${(v) => set('pain', v)} />
       ${f.pain ? html`<b style="margin-top:8px">Where?</b><${PainMap} regions=${M.REGIONS} chosen=${f.regions} onToggle=${toggle} />
         <b style="margin-top:8px">How bad, 0 to 10?</b><div class="x-scale eleven" role="group" aria-label="Pain score">${Array.from({ length: 11 }, (_, i) => html`<button type="button" aria-pressed=${String(f.painScore === i)} onClick=${() => set('painScore', i)}><b>${i}</b></button>`)}</div>
         <b style="margin-top:8px">Is it changing how you run or move?</b><${XSeg} label="Pain changes movement" value=${f.painAffectsRunning} options=${yesNo} onChange=${(v) => set('painAffectsRunning', v)} />` : null}
+      ${miss('pain') ? html`<${Missing} />` : miss('where it hurts') ? html`<${Missing} text="Tap where it hurts." />` : miss('how bad') ? html`<${Missing} text="Pick how bad, 0 to 10." />` : null}
     </div>
-    <div class="x-card"><b>How tired?</b><${XScale} label="Tiredness" value=${f.fatigue} words=${['Fresh', 'Good', 'OK', 'Tired', 'Wiped']} onChange=${(v) => set('fatigue', v)} /></div>
-    <div class="x-card"><b>How sore are your muscles?</b><${XScale} label="Soreness" value=${f.soreness} words=${['None', 'Bit', 'Some', 'Sore', 'Very']} onChange=${(v) => set('soreness', v)} /></div>
-    <div class="x-card" style="gap:12px"><${XField} label="Hours of sleep last night" type="number" inputmode="decimal" step="0.5" min="0" max="16" value=${f.sleepHours} onInput=${(v) => set('sleepHours', v)} />
-      <b>Feeling ill? Fever, sore throat, cough or stomach upset.</b><${XSeg} label="Ill" value=${f.ill} options=${yesNo} onChange=${(v) => set('ill', v)} /></div>
-    <div class="x-card" style="gap:12px"><div class="x-kicker" style="color:var(--x-work-text)">Safety</div>${RED.map(([k, q]) => html`<b>${q}</b><${XSeg} label=${q} value=${f.redFlags[k]} options=${yesNo} onChange=${(v) => set('redFlags', Object.assign({}, f.redFlags, { [k]: v }))} />`)}</div>
-    ${tried && missing.length ? html`<div class="x-err" role="alert">Please answer: ${missing.join(', ')}.</div>` : null}
+    <div class=${card('tiredness')}><b>How tired?</b><${XScale} label="Tiredness" value=${f.fatigue} words=${['Fresh', 'Good', 'OK', 'Tired', 'Wiped']} onChange=${(v) => set('fatigue', v)} />${miss('tiredness') ? html`<${Missing} />` : null}</div>
+    <div class=${card('soreness')}><b>How sore are your muscles?</b><${XScale} label="Soreness" value=${f.soreness} words=${['None', 'Bit', 'Some', 'Sore', 'Very']} onChange=${(v) => set('soreness', v)} />${miss('soreness') ? html`<${Missing} />` : null}</div>
+    <div class="x-card" style="gap:12px"><${XField} label="Hours of sleep last night" type="number" inputmode="decimal" step="0.5" min="0" max="16" value=${f.sleepHours} onInput=${(v) => set('sleepHours', v)} error=${miss('hours of sleep (0 to 16)') ? 'Add hours of sleep, 0 to 16. Half hours are fine.' : null} />
+      <div class=${miss('feeling ill') ? 'x-missing' : ''} style="display:flex;flex-direction:column;gap:8px"><b>Feeling ill? Fever, sore throat, cough or stomach upset.</b><${XSeg} label="Ill" value=${f.ill} options=${yesNo} onChange=${(v) => set('ill', v)} />${miss('feeling ill') ? html`<${Missing} />` : null}</div></div>
+    <div class=${card('the 3 safety questions')} style="gap:12px"><div class="x-kicker" style="color:var(--x-work-text)">Safety</div>${RED.map(([k, q]) => html`<b>${q}</b><${XSeg} label=${q} value=${f.redFlags[k]} options=${yesNo} onChange=${(v) => set('redFlags', Object.assign({}, f.redFlags, { [k]: v }))} />${tried && typeof f.redFlags[k] !== 'boolean' ? html`<${Missing} />` : null}`)}</div>
+    ${tried && missing.length ? html`<div class="x-err" role="alert">${missing.length === 1 ? 'One question still needs an answer.' : missing.length + ' questions still need an answer.'} They are marked above.</div>` : null}
     <button class="x-btn" onClick=${save}>Save pulse</button>
   </div>`;
 }
@@ -255,7 +259,7 @@ function testRow(results) {
     const last = T.history(results, t.key)[0];
     const j = last ? T.judge(t.key, last) : null;
     return html`<a class="x-row" href=${'#/tests/' + t.key}><span class=${'x-badge ' + (j && j.status !== 'even' ? j.status : '')}><${XIcon} name=${t.sides ? 'mirror' : 'tests'} size=${18} /></span>
-      <div class="grow"><b>${t.name}</b><span class="x-small x-muted">${last ? (t.sides ? 'L ' + last.left + ' · R ' + last.right + ' ' + unitWord(t) : fmtVal(t, last.value)) + ' · ' + ago(last.date + 'T12:00:00') : t.equipment.join(', ')}</span></div>
+      <div class="grow"><b>${t.name}</b><span class="x-small x-muted">${last ? (t.sides ? 'L ' + last.left + ' · R ' + last.right + ' ' + unitWord(t) : fmtVal(t, last.value)) + ' · ' + ago(last.date + 'T12:00:00') : equipList(t.equipment)}</span></div>
       ${j ? html`<${StatusChip} s=${j.status} />` : last ? null : html`<span class="x-chip tint">New</span>`}<span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`;
   };
 }
@@ -314,7 +318,7 @@ function Tests() {
     const last = T.history(results, t.key)[0];
     const j = last ? T.judge(t.key, last) : null;
     return html`<a class="x-row" href=${'#/tests/' + t.key}><span class=${'x-badge ' + (j && j.status !== 'even' ? j.status : '')}><${XIcon} name=${t.sides ? 'mirror' : 'tests'} size=${18} /></span>
-      <div class="grow"><b>${t.name}</b><span class="x-small x-muted">${last ? (t.sides ? 'L ' + last.left + ' · R ' + last.right + ' ' + unitWord(t) : fmtVal(t, last.value)) + ' · ' + ago(last.date + 'T12:00:00') : t.equipment.join(', ')}</span></div>
+      <div class="grow"><b>${t.name}</b><span class="x-small x-muted">${last ? (t.sides ? 'L ' + last.left + ' · R ' + last.right + ' ' + unitWord(t) : fmtVal(t, last.value)) + ' · ' + ago(last.date + 'T12:00:00') : equipList(t.equipment)}</span></div>
       ${j ? html`<${StatusChip} s=${j.status} />` : last ? null : html`<span class="x-chip tint">New</span>`}<span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>`;
   };
   return html`<div class="x-page">
@@ -329,7 +333,7 @@ function Tests() {
 function Stepper({ value, onChange, label }) {
   const v = Number(value) || 0;
   return html`<div style="display:flex;justify-content:center;align-items:center;gap:28px">
-    <button type="button" aria-label=${'One less, ' + label} onClick=${() => onChange(Math.max(0, v - 1))} style="width:64px;height:64px;border-radius:999px;border:0;background:var(--x-bg);color:var(--x-text)"><${XIcon} name="minus" size=${26} /></button>
+    <button type="button" aria-label=${'One less, ' + label} onClick=${() => onChange(Math.max(0, v - 1))} style="width:64px;height:64px;border-radius:999px;border:0;background:var(--x-card);color:var(--x-text);box-shadow:var(--x-shadow),inset 0 0 0 1px var(--x-line-2)"><${XIcon} name="minus" size=${26} /></button>
     <button type="button" aria-label=${'One more, ' + label} onClick=${() => onChange(v + 1)} style="width:88px;height:88px;border-radius:999px;border:0;background:var(--x-tint);color:#fff;box-shadow:0 10px 24px rgba(74,47,224,.35)"><${XIcon} name="plus" size=${34} /></button>
   </div>`;
 }
@@ -376,7 +380,7 @@ function TestRun({ testKey }) {
     <div class="x-topbar"><a class="x-link" href="#/train">Cancel</a><span class="x-small x-dim" style="font-weight:600">${t.equipment.join(' · ')}</span></div>
     <h1 class="x-title md">${t.name}</h1>
     <ol style="margin:0;padding-left:20px;color:var(--x-muted);display:grid;gap:6px">${t.steps.map((s) => html`<li>${s}</li>`)}</ol>
-    <div class="x-chips"><${ReadAloud} text=${t.name + '. You need: ' + t.equipment.join(', ') + '. ' + t.steps.join(' ')} /><${VoiceSwitch} /></div>
+    <div class="x-chips"><${ReadAloud} text=${t.name + '. You need: ' + equipList(t.equipment) + '. ' + t.steps.join(' ')} /><${VoiceSwitch} /></div>
     ${t.phone ? html`<div class="x-note">Phone-measured. Screens add a small delay of their own, so compare only with your own results on this phone.</div>` : null}
     ${t.sides ? html`<${XSeg} label="Side" value=${side} onChange=${setSide} options=${[{ value: 'left', label: 'Left' + (has(e.left) ? ' · ' + e.left : '') }, { value: 'right', label: 'Right' + (has(e.right) ? ' · ' + e.right : '') }]} />` : null}
     <${TestTool} t=${t} side=${side} onResult=${(v) => setE((cur) => Object.assign({}, cur, { [k]: String(v) }))} />
@@ -615,10 +619,11 @@ function Me() {
     <div class="x-list">
       <a class="x-row" href="#/plans"><div class="grow"><b>Your programmes</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
       <a class="x-row" href="#/feed?show=saved"><div class="grow"><b>Saved posts</b></div><span class="x-chev"><${XIcon} name="next" size=${18} /></span></a>
-      <button class="x-row" type="button" onClick=${() => downloadFile('motionplus-' + today() + '.json', JSON.stringify(store.exportData(), null, 1))}><div class="grow"><b>Download a backup</b><span class="x-small x-muted">Your records stay on this phone. Keep a copy.</span></div></button>
     </div>
+    <div class="x-section">Your data</div>
+    <div class="x-list"><${BackupRows} user=${u} /></div>
     ${!u.teamCode ? html`<${JoinTeam} />` : null}
-    ${others.length ? html`<div class="x-section">Other accounts on this phone</div><div class="x-list">${others.map((o) => html`<button class="x-row" type="button" onClick=${() => { switchTo(o.id); go('/'); }}><span class="x-avatar soft">${initial(o.name)}</span><div class="grow"><b>${o.name}</b><span class="x-small x-muted">${ROLES[o.role]}</span></div><span class="x-chev"><${XIcon} name="swap" size=${18} /></span></button>`)}</div>` : null}
+    <${OtherAccounts} others=${others} />
     <button class="x-btn ghost" onClick=${() => { signOut(); go('/welcome'); }}>Sign out</button>
   </div>`;
 }
@@ -757,4 +762,8 @@ function MoveSession({ stageKey }) {
   }
   return html`<${SessionCoach} items=${s.items} title=${'Move Better · ' + s.name} backHref="#/move" doneCue="sessiondone" doneText=${note}
     intro=${'About ' + s.minutes + ' minutes. ' + s.goal + '. The phone reads each one out and times your rests.'} onFinish=${() => logMove(a.id, 'move', s.key)} />`;
+}
+
+function NotFound() {
+  return html`<div class="x-page"><div class="x-card" style="align-items:center;text-align:center;padding:36px 18px;gap:10px"><${Logo} size=${48} /><h2>This page isn't here</h2><p class="x-muted">The link may be old, or the page has moved.</p><a class="x-btn soft sm" href="#/">Back to Home</a></div></div>`;
 }

@@ -10,6 +10,8 @@ import { CoachApp, COACH_PATHS } from './pages/coach.js';
 import { me, isCoachRole } from './session.js';
 import { Logo } from './logo.js';
 import { parse, onRoute } from './route.js';
+import { signOut } from './session.js';
+import { go } from './ui.js';
 
 const Loading = () => html`<div class="x"><div class="x-page plain" style="align-items:center;justify-content:center;min-height:80vh"><${Logo} size=${72} animate=${true} /></div></div>`;
 
@@ -19,6 +21,14 @@ function Pro() {
   const [mod, setMod] = useState(proModule);
   useEffect(() => { if (!mod) import('./pro.js').then((m) => { proModule = m; setMod(m); }); }, []);
   return mod ? html`<${mod.App} />` : html`<${Loading} />`;
+}
+
+// Demo accounts are clearly marked, so sample data is never mistaken for a real athlete's.
+// Leaving the demo removes every sample record from this phone; real accounts are untouched.
+function DemoBar() {
+  const [busy, setBusy] = useState(false);
+  const leave = async () => { setBusy(true); const { removeExamples } = await import('./examples.js'); await removeExamples(); signOut(); go('/welcome'); };
+  return html`<div class="sg-demo" role="status"><span><b>Demo</b> · sample people and results</span><button type="button" disabled=${busy} onClick=${leave}>${busy ? 'Removing…' : 'Leave demo'}</button></div>`;
 }
 
 // Signed out: welcome and sign-in. Athletes: the athlete app. Coaches: the coach app, with the
@@ -44,7 +54,7 @@ function Root() {
   else if (COACH_PATHS.includes(a || '')) view = html`<${CoachApp} r=${r} />`;
   else return html`<${Pro} />`;
   document.body.dataset.ui = 'x';
-  return html`${view}<${Toast} />`;
+  return html`${u && u.example ? html`<${DemoBar} />` : null}${view}<${Toast} />`;
 }
 
 render(html`<${Root} />`, document.getElementById('root'));

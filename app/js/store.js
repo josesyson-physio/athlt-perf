@@ -222,6 +222,23 @@ export function exportData() {
   return Object.assign({ app: 'motionplus', version: 3, exported_at: now(), athletes: state.athletes, assessments: state.assessments, settings: state.settings }, Object.fromEntries(MONITOR.map((k) => [k, state[k]])), Object.fromEntries(SOCIAL.map((k) => [k, state[k].map((x) => { const c = Object.assign({}, x); delete c.file; return c; })])));
 }
 
+// One person's backup: their account, their athlete profile and records, their chats and links.
+// Other people who share the phone are left out.
+export function exportFor(userId) {
+  const u = state.users.find((x) => x.id === userId);
+  if (!u) return null;
+  const aid = u.athleteId;
+  const mine = (k) => state[k].filter((x) => (aid && x.athleteId === aid));
+  const out = { app: 'motionplus', version: 3, exported_at: now(), scope: 'one account', athletes: aid ? state.athletes.filter((a) => a.id === aid) : [], assessments: aid ? state.assessments.filter((x) => x.athleteId === aid) : [], settings: state.settings };
+  MONITOR.forEach((k) => { out[k] = mine(k); });
+  out.users = [u];
+  out.posts = state.posts.filter((p) => p.authorId === u.id).map((x) => { const c = Object.assign({}, x); delete c.file; return c; });
+  out.reactions = state.reactions.filter((r) => r.userId === u.id);
+  out.links = state.links.filter((l) => l.athleteUserId === u.id || l.proId === u.id || (l.pros || []).includes(u.id));
+  out.messages = state.messages.filter((m) => m.fromId === u.id || m.toId === u.id).map((x) => { const c = Object.assign({}, x); delete c.file; return c; });
+  return out;
+}
+
 export async function importData(data) {
   if (!data || data.app !== 'motionplus' || !Array.isArray(data.athletes) || !Array.isArray(data.assessments)) throw new Error('format');
   let added = 0, skipped = 0;
